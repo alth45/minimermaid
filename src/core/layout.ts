@@ -96,18 +96,6 @@ function readBlock(
   return { kind: 'linear', indices };
 }
 
-/** Ukuran total sebuah blok linear sepanjang arah utama. */
-function linearExtent(members: readonly MeasuredNode[], direction: Direction): number {
-  if (members.length === 0) return 0;
-  const main = members.reduce((s, n) => s + (direction === 'horizontal' ? n.w : n.h), 0);
-  return main + LAYOUT.gap * (members.length - 1);
-}
-
-/** Lebar/tinggi silang (cross) maksimum sebuah blok linear. */
-function linearCross(members: readonly MeasuredNode[], direction: Direction): number {
-  return Math.max(...members.map((n) => (direction === 'horizontal' ? n.h : n.w)));
-}
-
 /** Ukuran total blok cabang: sumber + sepasang node tujuan berdampingan. */
 function branchExtent(
   _branch: { source: number; yes: number; no: number },
@@ -120,7 +108,9 @@ function branchExtent(
   if (!src || !yes || !no) return { main: 0, cross: 0 };
   const pairMain = direction === 'horizontal' ? Math.max(yes.w, no.w) : yes.h + LAYOUT.gap + no.h;
   const pairCross = direction === 'horizontal' ? yes.w + LAYOUT.gap + no.w : Math.max(yes.h, no.h);
-  let main = (direction === 'horizontal' ? src.w : src.h) + LAYOUT.gap + pairMain;
+  // Sumber tidak ikut menambah arah utama — ia berbagi "slot" yang sama
+  // dengan pasangan ya/tidak (sumber rata tengah di atas/di kiri pasangan).
+  let main = LAYOUT.gap + pairMain;
   let cross = Math.max(direction === 'horizontal' ? src.h : src.w, pairCross);
   // Rantai lanjutan setelah sisi "tidak" ikut dihitung dalam ukuran blok.
   for (let i = 3; i < members.length; i++) {
@@ -153,46 +143,60 @@ export function layout(
     measureNode({ ...n, x: 0, y: 0, w: 0, h: 0, lines: [] }),
   );
 
-  // Baca daftar blok dari deretan node.
-  interface Block {
+  // Setiap "unit" sepanjang arah utama punya stride-nya sendiri:
+  // - node tunggal          -> ukurannya sendiri
+  // - dua node berlink      -> ukuran keduanya + gap
+  // - blok `[cabang]`       -> sumber + pasangan ya/tidak (+ rantai lanjutan)
+  // Gap antar unit seragam `LAYOUT.gap`, sehingga deretan node tanpa cabang
+  // menghasilkan tata letak yang identik dengan perilaku sebelum cabang ada.
+  interface Unit {
     readonly kind: 'linear' | 'branch';
     readonly indices: readonly number[];
     readonly branch?: { source: number; yes: number; no: number };
-    readonly main: number;
-    readonly cross: number;
+    readonly mainSize: number;
+    readonly crossSize: number;
   }
-  const blocks: Block[] = [];
+  const units: Unit[] = [];
   let idx = 0;
   while (idx < nodes.length) {
     const blk = readBlock(nodes, idx);
     if (blk.indices.length === 0) break;
-    let main: number;
-    let cross: number;
     const members = blk.indices.map((i) => measured[i] as MeasuredNode);
     if (blk.kind === 'branch' && blk.branch) {
       const ext = branchExtent(blk.branch, members, direction);
-      main = ext.main;
-      cross = ext.cross;
-    } else {
-      main = linearExtent(members, direction);
-      cross = linearCross(members, direction);
+      units.push({ kind: 'branch', indices: blk.indices, branch: blk.branch, mainSize: ext.main, crossSize: ext.cross });
+      idx += blk.indices.length;
+      continue;
     }
-    blocks.push({ kind: blk.kind, indices: blk.indices, branch: blk.branch, main, cross });
+    // Pecah blok linear menjadi unit seukuran node — kecuali node pertama
+    // memakai `->node`, maka ia digabung dengan node berikutnya menjadi satu
+    // unit sepasang (persis seperti layout pra-cabang).
+    let i = 0;
+    while (i < members.length) {
+      const a = members[i] as MeasuredNode;
+      const b = members[i + 1];
+      const paired = a.link === true && b !== undefined;
+      const indices = paired ? [blk.indices[i] as number, blk.indices[i + 1] as number] : [blk.indices[i] as number];
+      const mainSize = paired
+        ? (direction === 'horizontal' ? a.w + b.w : a.h + b.h) + LAYOUT.gap
+        : direction === 'horizontal' ? a.w : a.h;
+      const crossSize = paired
+        ? Math.max(direction === 'horizontal' ? a.h : a.w, direction === 'horizontal' ? b.h : b.w)
+        : direction === 'horizontal' ? a.h : a.w;
+      units.push({ kind: 'linear', indices, mainSize, crossSize });
+      i += paired ? 2 : 1;
+    }
     idx += blk.indices.length;
   }
 
-  // Rantai linear diperlakukan seperti node tunggal (sama seperti perilaku
-  // pra-cabang): gap antar semua unit seragam `LAYOUT.gap`. Hanya blok
-  // percabangan yang boleh lebih lebar/tinggi dari tetangganya.
-  const hasBranch = blocks.some((b) => b.kind === 'branch');
-  const maxCross = Math.max(...blocks.map((b) => b.cross));
-  const blockStep = hasBranch ? LAYOUT.gap : LAYOUT.gap;
+  const hasBranch = units.some((u) => u.kind === 'branch');
+  const maxCross = Math.max(...units.map((u) => u.crossSize));
   const totalMain =
-    blocks.reduce((sum, b) => sum + b.main, 0) + blockStep * Math.max(0, blocks.length - 1);
+    units.reduce((sum, u) => sum + u.mainSize, 0) + LAYOUT.gap * Math.max(0, units.length - 1);
 
   const placed: PositionedNode[] = new Array(nodes.length);
 
-  // Helper penempatan (dipakai di dalam loop blok di bawah).
+  // Helper penempatan (dipakai di dalam loop unit di bawah).
   const place = (nodeIndex: number, mainPos: number, crossPos: number): void => {
     const m = measured[nodeIndex] as MeasuredNode;
     const node: PositionedNode = direction === 'horizontal'
@@ -202,8 +206,9 @@ export function layout(
   };
 
   let cursor = 0;
-  for (const block of blocks) {
-    const crossBase = (maxCross - block.cross) / 2;
+  for (const unit of units) {
+    const block = unit; // nama lokal agar kode penempatan di bawah tetap ringkas
+    const crossBase = (maxCross - block.crossSize) / 2;
 
     if (block.kind === 'branch' && block.branch) {
       const { source, yes, no } = block.branch;
@@ -212,26 +217,30 @@ export function layout(
       const noM = measured[no] as MeasuredNode;
       const srcMainSize = direction === 'horizontal' ? srcM.w : srcM.h;
       const srcCrossSize = direction === 'horizontal' ? srcM.h : srcM.w;
-      // Sumber rata tengah terhadap lebar blok cabang.
-      place(source, cursor, crossBase + (block.cross - srcCrossSize) / 2);
-      const pairCursor = cursor + srcMainSize + LAYOUT.gap;
+      // Sumber berbagi slot dengan pasangan: posisinya SIMETRIS terhadap
+      // titik awal pasangan (cursor + gap/2), sehingga jarak edge
+      // sumber→ya identik dengan jarak edge sumber→tidak pada kedua arah.
+      const pairStart = cursor + LAYOUT.gap / 2;
+      place(source, pairStart - srcMainSize / 2, crossBase + (block.crossSize - srcCrossSize) / 2);
       if (direction === 'horizontal') {
         // Pasangan ya/tidak bertumpuk vertikal, sejajar sisi kanan sumber.
         const colW = Math.max(yesM.w, noM.w);
-        const cx = pairCursor + (block.cross - colW) / 2;
+        const cx = pairStart + (block.crossSize - colW) / 2;
         place(yes, cx, crossBase);
         place(no, cx, crossBase + yesM.h + LAYOUT.gap);
       } else {
         // Pasangan ya/tidak berdampingan horizontal, sejajar sisi bawah sumber.
         const rowH = Math.max(yesM.h, noM.h);
-        const cy = crossBase + (block.cross - rowH) / 2;
-        const colYes = pairCursor;
-        const colNo = pairCursor + yesM.w + LAYOUT.gap;
+        const cy = crossBase + (block.crossSize - rowH) / 2;
+        const pairW = yesM.w + LAYOUT.gap + noM.w;
+        const px = crossBase + (block.crossSize - pairW) / 2;
+        const colYes = px;
+        const colNo = px + yesM.w + LAYOUT.gap;
         place(yes, colYes, cy + (rowH - yesM.h) / 2);
         place(no, colNo, cy + (rowH - noM.h) / 2);
       }
       // Rantai lanjutan setelah sisi "tidak".
-      let innerTail = pairCursor
+      let innerTail = pairStart
         + (direction === 'horizontal' ? Math.max(yesM.w, noM.w) : yesM.w + LAYOUT.gap + noM.w)
         + LAYOUT.gap;
       for (let k = 3; k < block.indices.length; k++) {
@@ -239,8 +248,8 @@ export function layout(
         const m = measured[i as number] as MeasuredNode;
         const mainSize = direction === 'horizontal' ? m.w : m.h;
         const crossSize = direction === 'horizontal' ? m.h : m.w;
-        if (direction === 'horizontal') place(i as number, innerTail, crossBase + (block.cross - crossSize) / 2);
-        else place(i as number, crossBase + (block.cross - crossSize) / 2, innerTail);
+        if (direction === 'horizontal') place(i as number, innerTail, crossBase + (block.crossSize - crossSize) / 2);
+        else place(i as number, crossBase + (block.crossSize - crossSize) / 2, innerTail);
         innerTail += mainSize + LAYOUT.gap;
       }
     } else {
@@ -252,14 +261,14 @@ export function layout(
         // Tanpa cabang: setiap node rata tengah pada kanvas penuh (perilaku lama).
         // Dengan cabang: node rata tengah dalam bloknya, blok digeser ke tengah kanvas.
         const crossPos = hasBranch
-          ? crossBase + (block.cross - crossSize) / 2
+          ? crossBase + (block.crossSize - crossSize) / 2
           : (maxCross - crossSize) / 2;
         if (direction === 'horizontal') place(i, inner, crossPos);
         else place(i, crossPos, inner);
         inner += mainSize + LAYOUT.gap;
       }
     }
-    cursor += block.main + blockStep;
+    cursor += block.mainSize + LAYOUT.gap;
   }
 
 
