@@ -1,5 +1,5 @@
 import type { Direction, EdgeSpec, NodeSpec, ParseResult } from './types';
-import { resolveShape } from './shapes';
+import { resolveBranchRole, resolveShape, type BranchRole } from './shapes';
 
 /* =========================================================
    PARSER — teks → model diagram.
@@ -17,18 +17,33 @@ const LINE_PATTERN =
   /^->\s*\[\s*([A-Za-z_][A-Za-z0-9_]*)\s*\]\s*->\s*(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\]\s*(->\s*node)?\s*$/;
 
 /**
- * Grambar satu baris PERCABANGAN (cabang):
- *   `[cabang]->[shape]->text["Label"]->node`
- * Diakhiri dua sisi cabang, masing-masing opsional berlabel:
- *   `->ya["Ya"]->node` / `->tidak["Tidak"]->node` / `->node` (tanpa label)
- * Alias penanda: `[branch]`, `[if]`. Alias sisi: yes/ya, no/tidak.
+ * Satu segmen node dalam sebuah baris: `[bentuk] -> text["Label"]` (opsional `->node`).
+ * Dipakai untuk memecah baris menjadi beberapa node (mendukung percabangan satu baris).
+ */
+const SEGMENT_PATTERN = String.raw`\[\s*([A-Za-z_][A-Za-z0-9_]*)\s*\]\s*->\s*(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\]\s*(?:->\s*node\s*)?`;
+
+/** Baris tunggal yang terdiri dari beberapa segmen node, dipisah `->`. */
+const MULTINODE_LINE_PATTERN = new RegExp(
+  String.raw`^(?:->\s*)?(` + SEGMENT_PATTERN + String.raw`(?:->\s*)?)+$`,
+);
+
+/** Pemisah antar-segmen pada baris multi-node. */
+const SEGMENT_SPLIT_PATTERN = new RegExp(String.raw`->\s*(?=\[)`);
+
+/**
+ * Sintaks lama dua-baris masih didukung:
+ *   `[cabang]->[shape]->text["Label"]`          → sumber saja (sisi di baris berikutnya)
+ *   `[cabang]->[shape]->text["Label"]->node`    → sumber + sisi ya/tidak ditulis inline
+ *   `->ya["..."]` / `->tidak["..."]`            → sisi tanpa bentuk eksplisit
  */
 const BRANCH_MARKER_PATTERN = /^\[(cabang|branch|if)\]/i;
 
-function branchLinePattern(marker: string): RegExp {
+function legacyBranchLinePattern(marker: string): RegExp {
   return new RegExp(
     String.raw`^\[` + marker + String.raw`\]\s*->\s*\[\s*([A-Za-z_][A-Za-z0-9_]*)\s*\]\s*->\s*` +
-      String.raw`(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\]\s*->\s*node\s*` +
+      String.raw`(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\]` +
+      // Bentuk lama: `->node` WAJIB ada sebelum sisi ya/tidak boleh muncul.
+      String.raw`(->\s*node\s*)?` +
       // Sisi "ya" (opsional): ->node  ATAU  ->ya["..."]->node
       String.raw`(?:->\s*(?:ya|yes)\s*(?:\[\s*"([^"]*)"\s*\])?\s*->\s*node\s*)?` +
       // Sisi "tidak" (opsional): ->node  ATAU  ->tidak["..."]->node
@@ -36,6 +51,10 @@ function branchLinePattern(marker: string): RegExp {
     'i',
   );
 }
+
+/** Sisi cabang gaya lama: `->ya["..."]` / `->tidak["..."]` (boleh tanpa label). */
+const LEGACY_SIDE_PATTERN =
+  /^->\s*(ya|yes|tidak|no)\s*(?:\[\s*"([^"]*)"\s*\])?\s*(?:->\s*node)?\s*$/i;
 
 /** Label bawaan untuk kedua sisi percabangan. */
 const DEFAULT_BRANCH_LABELS = { yes: 'Ya', no: 'Tidak' } as const;
@@ -71,6 +90,46 @@ export function parse(source: string): ParseResult {
   }
   const rawBranches: (RawBranch | undefined)[] = [];
 
+  /** Tambah satu node; `branchRole` 'source' memberi flag cabang. */
+  const pushNode = (
+    shapeTokenRaw: string,
+    labelToken: string,
+    link: boolean,
+    branchRole?: BranchRole,
+  ): void => {
+    let shape = resolveShape(shapeTokenRaw);
+    if (shape === undefined) {
+      errors.push(`Bentuk "${shapeTokenRaw.trim().toLowerCase()}" tidak dikenal, dipakai 'square'.`);
+      shape = 'square';
+    }
+    nodes.push({
+      shape,
+      // Dukung eskap `\n` literal di dalam label menjadi baris baru.
+      label: labelToken.replace(/\\n/g, '\n'),
+      link,
+      branch: branchRole === 'source',
+    });
+    rawBranches.push(undefined);
+  };
+
+  /** Ambil bentuk & label dari satu segmen `[bentuk] -> text["label"]`. */
+  const SEGMENT_EXTRACT = new RegExp(
+    String.raw`^\s*\[?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\]\s*->\s*(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\]\s*(?:->\s*node\s*)?$`,
+  );
+
+  /** Pecah baris multi-node menjadi daftar segmen (null bila tak cocok). */
+  const segmentsOf = (text: string): { shape: string; label: string }[] | null => {
+    const parts = text.split(SEGMENT_SPLIT_PATTERN);
+    const out: { shape: string; label: string }[] = [];
+    for (const part of parts) {
+      const p = part.trim().replace(/^->\s*/, '');
+      const m = SEGMENT_EXTRACT.exec(p.startsWith('[') ? p : `[${p}`);
+      if (!m || m[1] === undefined || m[2] === undefined) return null;
+      out.push({ shape: m[1], label: m[2] });
+    }
+    return out.length >= 2 ? out : null;
+  };
+
   source.split(/\r?\n/).forEach((raw, index) => {
     const line = raw.trim();
     // Abaikan baris kosong & komentar.
@@ -91,71 +150,74 @@ export function parse(source: string): ParseResult {
       }
     }
 
-    // --- Baris PERCABANGAN? ---
+    // --- Baris PERCABANGAN gaya lama: `[cabang]->[shape]->text["L"]->node ...` ---
     const markerMatch = BRANCH_MARKER_PATTERN.exec(line);
     const markerToken = markerMatch?.[1];
     if (markerMatch && markerToken !== undefined) {
-      const match = branchLinePattern(markerToken).exec(line);
+      const match = legacyBranchLinePattern(markerToken).exec(line);
       const shapeToken = match?.[1];
       const labelToken = match?.[2];
       if (!match || shapeToken === undefined || labelToken === undefined) {
         errors.push(`Baris ${index + 1}: sintaks cabang tidak dikenal → ${line}`);
         return;
       }
-      let shape = resolveShape(shapeToken);
-      if (shape === undefined) {
-        errors.push(`Baris ${index + 1}: bentuk "${shapeToken.toLowerCase()}" tidak dikenal, dipakai 'square'.`);
-        shape = 'square';
-      }
-      nodes.push({
-        shape,
-        label: labelToken.replace(/\\n/g, '\n'),
-        link: true, // cabang selalu menyambung ke node berikutnya
-        branch: true,
-      });
-      rawBranches.push({ yesLabel: match[3], noLabel: match[4] });
+      pushNode(shapeToken, labelToken, match[3] !== undefined, 'source');
+      rawBranches[nodes.length - 1] = { yesLabel: match[4], noLabel: match[5] };
       return;
     }
 
-    // --- Baris node biasa ---
+    // --- Baris MULTI-NODE (termasuk percabangan satu baris) ---
+    // Contoh: `->[cabang]->text["Login?"] ->[ya]->text["Berhasil"] ->[tidak]->text["Gagal"]`
+    if (MULTINODE_LINE_PATTERN.test(line)) {
+      const segs = segmentsOf(line);
+      if (segs) {
+        segs.forEach((s, i) => {
+          pushNode(s.shape, s.label, i < segs.length - 1, resolveBranchRole(s.shape));
+        });
+        return;
+      }
+    }
+
+    // --- Baris node biasa (satu node) ---
     const match = LINE_PATTERN.exec(line);
     const shapeToken = match?.[1];
     const labelToken = match?.[2];
     if (!match || shapeToken === undefined || labelToken === undefined) {
+      // --- Sisi cabang gaya lama tanpa bentuk: `->ya["Ya"]->node` ---
+      const sideMatch = LEGACY_SIDE_PATTERN.exec(line);
+      const sideWord = sideMatch?.[1];
+      if (sideMatch && sideWord !== undefined) {
+        const isYes = sideWord.toLowerCase().startsWith('y');
+        const sideLabel = sideMatch[2] ?? (isYes ? DEFAULT_BRANCH_LABELS.yes : DEFAULT_BRANCH_LABELS.no);
+        pushNode(isYes ? 'round' : 'diamond', sideLabel, sideMatch[3] !== undefined);
+        return;
+      }
       errors.push(`Baris ${index + 1}: sintaks tidak dikenal → ${line}`);
       return;
     }
-
-    let shape = resolveShape(shapeToken);
-    if (shape === undefined) {
-      errors.push(`Baris ${index + 1}: bentuk "${shapeToken.toLowerCase()}" tidak dikenal, dipakai 'square'.`);
-      shape = 'square';
-    }
-
-    nodes.push({
-      shape,
-      // Dukung eskap `\n` literal di dalam label menjadi baris baru.
-      label: labelToken.replace(/\\n/g, '\n'),
-      link: match[3] !== undefined,
-      branch: false,
-    });
-    rawBranches.push(undefined);
+    pushNode(shapeToken, labelToken, match[3] !== undefined, resolveBranchRole(shapeToken));
   });
 
   // Bangun edge. Node bertanda `->node` menyambung ke node berikutnya;
-  // node cabang menghasilkan DUA edge berlabel ("Ya"/"Tidak") yang sama-sama
-  // menunjuk ke node berikutnya.
-  for (let i = 0; i < nodes.length - 1; i++) {
+  // node cabang menghasilkan DUA edge berlabel ("Ya"/"Tidak") yang menunjuk
+  // ke dua node berikutnya (sisi ya lalu sisi tidak).
+  for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
-    const next = nodes[i + 1];
-    if (!node || !next) continue;
+    if (!node) continue;
     if (node.branch) {
       const info = rawBranches[i];
-      edges.push({ from: i, to: i + 1, label: info?.yesLabel ?? DEFAULT_BRANCH_LABELS.yes });
-      edges.push({ from: i, to: i + 1, label: info?.noLabel ?? DEFAULT_BRANCH_LABELS.no });
-    } else if (node.link) {
-      edges.push({ from: i, to: i + 1 });
+      const yesIdx = i + 1;
+      const noIdx = i + 2;
+      if (yesIdx < nodes.length) {
+        edges.push({ from: i, to: yesIdx, label: info?.yesLabel ?? DEFAULT_BRANCH_LABELS.yes });
+      }
+      if (noIdx < nodes.length) {
+        edges.push({ from: i, to: noIdx, label: info?.noLabel ?? DEFAULT_BRANCH_LABELS.no });
+      }
+      continue;
     }
+    const next = nodes[i + 1];
+    if (node.link && next) edges.push({ from: i, to: i + 1 });
   }
   const last = nodes[nodes.length - 1];
   if (last?.link) {
