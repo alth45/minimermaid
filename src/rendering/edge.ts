@@ -7,8 +7,12 @@ import { num } from './svg-utils';
    panah. Arah sambungan mengikuti orientasi layout:
    - vertikal  : dasar node sumber → puncak node tujuan
    - horizontal: sisi kanan node sumber → sisi kiri node tujuan
-   Edge percabangan (dua edge dari node yang sama) digambar
-   menyimpang ke kiri/kanan lalu dilengkapi label kecil ("Ya"/"Tidak").
+   Edge percabangan HANYA muncul bila kode memakai `[cabang]`;
+   bentuknya selalu siku-rapi (elbow) mengikuti grid kolom:
+   - vertikal  : keluar dari dasar sumber, belok mendatar, masuk ke puncak tujuan
+   - horizontal: keluar dari kanan sumber, belok vertikal, masuk ke kiri tujuan
+   Tanpa `[cabang]` (dan tanpa direktif arah) semua edge digambar
+   lurus vertikal default yang rapi.
    ========================================================= */
 
 /** Anotasi posisi edge dalam sepasang cabang. */
@@ -18,8 +22,7 @@ const LABEL_FONT_SIZE = 12;
 
 /**
  * Pilih sisi keluar/masuk node untuk edge antar dua node yang posisinya
- * sudah diketahui — dipakai agar edge cabang (sumber → sisi ya/tidak yang
- * letaknya menyamping) tetap tersambung ke sisi terdekat.
+ * sudah diketahui — dipakai agar edge cabang tetap tersambung ke sisi terdekat.
  */
 function anchorPair(
   a: PositionedNode,
@@ -62,6 +65,20 @@ function anchorPair(
   };
 }
 
+/** Titik tengah kurva cubic bezier pada parameter t = 0.5. */
+function bezierMidpoint(
+  p0x: number, p0y: number,
+  c1x: number, c1y: number,
+  c2x: number, c2y: number,
+  p1x: number, p1y: number,
+): { mx: number; my: number } {
+  // B(0.5) = (p0 + 3c1 + 3c2 + p1) / 8
+  return {
+    mx: (p0x + 3 * c1x + 3 * c2x + p1x) / 8,
+    my: (p0y + 3 * c1y + 3 * c2y + p1y) / 8,
+  };
+}
+
 /** Hasilkan elemen <path> (+ label opsional) antara dua node. */
 export function edgeSvg(
   a: PositionedNode,
@@ -75,46 +92,46 @@ export function edgeSvg(
   let ly = 0;
   const midX = (a.x + a.w / 2 + b.x + b.w / 2) / 2;
   const midY = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
-  const { x1, y1, x2, y2, along } = anchorPair(a, b, horizontal);
 
-  if (along === 'cross') {
-    // Kurva yang berpindah melintang: kendali mengikuti sumbu utama perpindahan.
+  if (branch) {
+    // ===== EDGE CABANG (hanya untuk node [cabang]) — elbow mengikuti grid =====
     if (horizontal) {
-      const c = Math.max(24, Math.abs(y2 - y1) * 0.45);
-      const dir = y2 > y1 ? 1 : -1;
-      d = `M${num(x1)},${num(y1)} C${num(x1)},${num(y1 + dir * c)} ${num(x2)},${num(y2 - dir * c)} ${num(x2)},${num(y2)}`;
+      // Grid baru: sumber di lajur-1, ya/tidak di lajur-2 (atas/bawah).
+      // Keluar dari SISI KANAN sumber, belok vertikal, masuk ke SISI KIRI tujuan.
+      const x1 = a.x + a.w;
+      const y1 = a.y + a.h / 2;
+      const x2 = b.x - 2;
+      const y2 = b.y + b.h / 2;
+      const bendX = x1 + Math.max(16, (x2 - x1) * 0.5);
+      d = `M${num(x1)},${num(y1)} C${num(bendX)},${num(y1)} ${num(bendX)},${num(y2)} ${num(x2)},${num(y2)}`;
+      const mid = bezierMidpoint(x1, y1, bendX, y1, bendX, y2, x2, y2);
+      lx = mid.mx;
+      ly = mid.my;
     } else {
-      const c = Math.max(24, Math.abs(x2 - x1) * 0.45);
-      const dir = x2 > x1 ? 1 : -1;
-      d = `M${num(x1)},${num(y1)} C${num(x1 + dir * c)},${num(y1)} ${num(x2 - dir * c)},${num(y2)} ${num(x2)},${num(y2)}`;
+      // Grid baru: sumber di baris-1, ya|tidak di baris-2 (kiri/kanan).
+      // Keluar dari DASAR sumber, belok mendatar, masuk ke PUNCAK tujuan.
+      const x1 = a.x + a.w / 2;
+      const y1 = a.y + a.h;
+      const x2 = b.x + b.w / 2;
+      const y2 = b.y - 2;
+      const bendY = y1 + Math.max(14, (y2 - y1) * 0.4);
+      d = `M${num(x1)},${num(y1)} C${num(x1)},${num(bendY)} ${num(x2)},${num(bendY)} ${num(x2)},${num(y2)}`;
+      const mid = bezierMidpoint(x1, y1, x1, bendY, x2, bendY, x2, y2);
+      lx = mid.mx;
+      ly = mid.my;
+    }
+  } else {
+    // ===== EDGE BIASA (rantai linear) — selalu searah sumbu utama =====
+    const { x1, y1, x2, y2 } = anchorPair(a, b, horizontal);
+    if (horizontal) {
+      const c = Math.max(24, (x2 - x1) * 0.45);
+      d = `M${num(x1)},${num(y1)} C${num(x1 + c)},${num(y1)} ${num(x2 - c)},${num(y2)} ${num(x2)},${num(y2)}`;
+    } else {
+      const c = Math.max(24, (y2 - y1) * 0.45);
+      d = `M${num(x1)},${num(y1)} C${num(x1)},${num(y1 + c)} ${num(x2)},${num(y2 - c)} ${num(x2)},${num(y2)}`;
     }
     lx = midX;
     ly = midY;
-  } else if (horizontal) {
-    const c = Math.max(24, (x2 - x1) * 0.45);
-    if (branch) {
-      // Dua edge dari titik yang sama: tekuk ke atas (ya) / bawah (tidak).
-      const bend = branch === 'yes' ? -LAYOUT.gap * 0.45 : LAYOUT.gap * 0.45;
-      d = `M${num(x1)},${num(y1)} C${num(x1 + c)},${num(y1 + bend)} ${num(x2 - c)},${num(y2 + bend)} ${num(x2)},${num(y2)}`;
-      lx = midX;
-      ly = midY + bend * 0.75;
-    } else {
-      d = `M${num(x1)},${num(y1)} C${num(x1 + c)},${num(y1)} ${num(x2 - c)},${num(y2)} ${num(x2)},${num(y2)}`;
-      lx = midX;
-      ly = midY;
-    }
-  } else {
-    const c = Math.max(24, (y2 - y1) * 0.45);
-    if (branch) {
-      const bend = branch === 'yes' ? -LAYOUT.gap * 0.45 : LAYOUT.gap * 0.45;
-      d = `M${num(x1)},${num(y1)} C${num(x1 + bend)},${num(y1 + c)} ${num(x2 + bend)},${num(y2 - c)} ${num(x2)},${num(y2)}`;
-      lx = midX + bend * 0.75;
-      ly = midY;
-    } else {
-      d = `M${num(x1)},${num(y1)} C${num(x1)},${num(y1 + c)} ${num(x2)},${num(y2 - c)} ${num(x2)},${num(y2)}`;
-      lx = midX;
-      ly = midY;
-    }
   }
 
   const path = `<path d="${d}" fill="none" stroke="#7d8590" stroke-width="2"

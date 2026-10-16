@@ -150,24 +150,57 @@ export function parse(source: string): ParseResult {
       }
     }
 
-    // --- Baris PERCABANGAN gaya lama: `[cabang]->[shape]->text["L"]->node ...` ---
+    // --- Baris PERCABANGAN `[cabang]` (gaya lama maupun satu baris penuh) ---
     const markerMatch = BRANCH_MARKER_PATTERN.exec(line);
     const markerToken = markerMatch?.[1];
     if (markerMatch && markerToken !== undefined) {
-      const match = legacyBranchLinePattern(markerToken).exec(line);
-      const shapeToken = match?.[1];
-      const labelToken = match?.[2];
-      if (!match || shapeToken === undefined || labelToken === undefined) {
-        errors.push(`Baris ${index + 1}: sintaks cabang tidak dikenal → ${line}`);
+      // 1) Gaya lama: sumber + sisi inline `->ya["..."]` / `->tidak["..."]`.
+      const legacy = legacyBranchLinePattern(markerToken).exec(line);
+      const legacyShape = legacy?.[1];
+      const legacyLabel = legacy?.[2];
+      if (legacy && legacyShape !== undefined && legacyLabel !== undefined) {
+        pushNode(legacyShape, legacyLabel, legacy[3] !== undefined, 'source');
+        rawBranches[nodes.length - 1] = { yesLabel: legacy[4], noLabel: legacy[5] };
         return;
       }
-      pushNode(shapeToken, labelToken, match[3] !== undefined, 'source');
-      rawBranches[nodes.length - 1] = { yesLabel: match[4], noLabel: match[5] };
+      // 2) Gaya satu baris penuh:
+      //    `[cabang]->[diamond]->text["Login?"]->node->[ya]->text["OK"]->node->[tidak]->text["Gagal"]`
+      //    Sumber WAJIB disertai kedua sisi ([ya] dan [tidak]) pada baris yang
+      //    sama â€” percabangan hanya terbentuk bila kata `[cabang]` memang ditulis.
+      const tail = line.slice(markerMatch[0].length).replace(/^\s*->\s*/, '');
+      const segs = segmentsOf(tail);
+      if (segs && segs.length >= 3) {
+        const roles = segs.map((sg) => resolveBranchRole(sg.shape));
+        const yesAt = roles.findIndex((r) => r === 'yes');
+        const noAt = roles.findIndex((r) => r === 'no');
+        const srcSeg = segs[0];
+        const yesSeg = yesAt >= 0 ? segs[yesAt] : undefined;
+        const noSeg = noAt >= 0 ? segs[noAt] : undefined;
+        if (srcSeg && yesSeg && noSeg && yesAt < noAt) {
+          pushNode(srcSeg.shape, srcSeg.label, true, 'source');
+          rawBranches[nodes.length - 1] = {
+            // Sisi bergaya lama (`ya["Label"]` tanpa bentuk dikenal) -> label edge kustom.
+            yesLabel: resolveShape(yesSeg.shape) === undefined ? yesSeg.label : undefined,
+            noLabel: resolveShape(noSeg.shape) === undefined ? noSeg.label : undefined,
+          };
+          pushNode(yesSeg.shape, yesSeg.label, false, 'yes');
+          pushNode(noSeg.shape, noSeg.label, noAt + 1 < segs.length, 'no');
+          // Segmen sesudah sisi "tidak" melanjutkan rantai linear biasa.
+          for (let sg = noAt + 1; sg < segs.length; sg++) {
+            const seg = segs[sg];
+            if (seg) pushNode(seg.shape, seg.label, sg < segs.length - 1);
+          }
+          return;
+        }
+      }
+      errors.push(`Baris ${index + 1}: sintaks cabang tidak dikenal → ${line}`);
       return;
     }
 
-    // --- Baris MULTI-NODE (termasuk percabangan satu baris) ---
-    // Contoh: `->[cabang]->text["Login?"] ->[ya]->text["Berhasil"] ->[tidak]->text["Gagal"]`
+    // --- Baris MULTI-NODE (rantai linear satu baris, TANPA kata cabang) ---
+    // Contoh: `->[square]->text["A"]->node->[round]->text["B"]`
+    // Catatan: token `[cabang]/[ya]/[tidak]` di sini tetap dikenali sebagai
+    // peran cabang, tetapi panah bercabang hanya terbentuk dari blok `[cabang]`.
     if (MULTINODE_LINE_PATTERN.test(line)) {
       const segs = segmentsOf(line);
       if (segs) {
