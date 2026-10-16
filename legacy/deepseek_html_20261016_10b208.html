@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MiniMermaid — Diagram dari Teks</title>
+<style>
+  :root{
+    --bg:#0d1117;
+    --panel:#161b22;
+    --panel-2:#0f141b;
+    --border:#30363d;
+    --text:#e6edf3;
+    --muted:#8b949e;
+    --accent:#58a6ff;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header{
+    display:flex; align-items:center; gap:12px;
+    padding:10px 16px;
+    border-bottom:1px solid var(--border);
+    background:var(--panel);
+    flex:0 0 auto;
+  }
+  header h1{
+    font-size:15px; margin:0; font-weight:600; letter-spacing:.2px;
+  }
+  header h1 span{ color:var(--accent); }
+  header .spacer{ flex:1; }
+  header button{
+    background:#21262d; color:var(--text); border:1px solid var(--border);
+    padding:6px 12px; border-radius:6px; font-size:12.5px; cursor:pointer;
+  }
+  header button:hover{ background:#30363d; border-color:#484f58; }
+
+  .app{
+    flex:1 1 auto; min-height:0;
+    display:grid;
+    grid-template-columns: minmax(280px, 34%) 1fr;
+  }
+
+  .editor{
+    display:flex; flex-direction:column; min-height:0;
+    border-right:1px solid var(--border);
+    background:var(--panel-2);
+  }
+  .editor .label{
+    font-size:11px; text-transform:uppercase; letter-spacing:.12em;
+    color:var(--muted); padding:10px 14px 6px;
+  }
+  textarea{
+    flex:1 1 auto; min-height:0; resize:none;
+    background:transparent; color:#c9d1d9; border:0; outline:none;
+    padding:0 14px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:13px; line-height:1.65; tab-size:2;
+  }
+  .help{
+    border-top:1px solid var(--border);
+    padding:10px 14px 14px;
+    font-size:11.5px; color:var(--muted); line-height:1.7;
+    max-height:38%; overflow:auto;
+  }
+  .help code{
+    background:#21262d; padding:1px 5px; border-radius:4px;
+    color:#79c0ff; font-family: ui-monospace, monospace; font-size:11px;
+  }
+
+  .preview{
+    position:relative; min-height:0;
+    background:
+      radial-gradient(circle at 1px 1px, #21262d 1px, transparent 0) 0 0/22px 22px,
+      #0d1117;
+    overflow:hidden;
+  }
+  svg#canvas{ width:100%; height:100%; display:block; }
+
+  #errors{
+    position:absolute; left:14px; bottom:14px; right:14px;
+    display:flex; flex-direction:column; gap:6px;
+    pointer-events:none;
+  }
+  #errors div{
+    background:rgba(248,81,73,.12);
+    border:1px solid rgba(248,81,73,.45);
+    color:#ff9c94;
+    font-size:12px; padding:7px 11px; border-radius:7px;
+    font-family: ui-monospace, monospace;
+    backdrop-filter: blur(4px);
+  }
+  @media (max-width: 760px){
+    .app{ grid-template-columns:1fr; grid-template-rows: 42% 58%; }
+    .editor{ border-right:0; border-bottom:1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mini<span>Mermaid</span></h1>
+  <div class="spacer"></div>
+  <button id="download">⬇ Download SVG</button>
+</header>
+
+<div class="app">
+  <section class="editor">
+    <div class="label">Kode Diagram</div>
+    <textarea id="src" spellcheck="false"></textarea>
+    <div class="help">
+      <b>Bentuk:</b>
+      <code>square</code> <code>round</code> <code>circle</code> <code>ellipse</code>
+      <code>diamond</code> <code>triangle</code> <code>hexagon</code>
+      <code>parallelogram</code> <code>cylinder</code> <code>document</code><br>
+      <b>Sambung:</b> tambahkan <code>-&gt;node</code> di akhir baris untuk
+      menyambung ke node berikutnya secara otomatis.<br>
+      <b>Baris baru dalam teks:</b> tulis <code>\n</code>
+    </div>
+  </section>
+
+  <section class="preview">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+    <div id="errors"></div>
+  </section>
+</div>
+
+<script>
+/* =========================================================
+   1. KAMUS BENTUK (SHAPE)
+   ========================================================= */
+const ALIAS = {
+  square:'square', rect:'square', box:'square', kotak:'square', persegi:'square',
+  round:'round', rounded:'round', stadium:'round', pill:'round', kapsul:'round',
+  circle:'circle', lingkaran:'circle', bulat:'circle',
+  ellipse:'ellipse', elips:'ellipse', oval:'ellipse',
+  diamond:'diamond', decision:'diamond', rhombus:'diamond',
+  belah:'diamond', belahketupat:'diamond',
+  triangle:'triangle', segitiga:'triangle',
+  hexagon:'hexagon', segienam:'hexagon',
+  parallelogram:'parallelogram', jajargenjang:'parallelogram',
+  cylinder:'cylinder', database:'cylinder', db:'cylinder', silinder:'cylinder',
+  document:'document', doc:'document', dokumen:'document'
+};
+
+const PALETTE = ['#58a6ff','#a371f7','#3fb950','#d29922','#f778ba','#39c5cf','#ff7b72','#bc8cff'];
+
+/* =========================================================
+   2. PARSER  (teks -> model)
+   ========================================================= */
+const LINE_RE = /^->\s*\[\s*([A-Za-z_][A-Za-z0-9_]*)\s*\]\s*->\s*(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\]\s*(->\s*node)?\s*$/;
+
+function parse(src){
+  const nodes = [], edges = [], errors = [];
+  const lines = src.split(/\r?\n/);
+
+  lines.forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line || line.startsWith('#') || line.startsWith('//')) return;
+
+    const m = line.match(LINE_RE);
+    if (!m){
+      errors.push(`Baris ${i+1}: sintaks tidak dikenal → ${line}`);
+      return;
+    }
+
+    let shape = m[1].toLowerCase();
+    if (!ALIAS[shape]){
+      errors.push(`Baris ${i+1}: bentuk "${shape}" tidak dikenal, dipakai 'square'.`);
+      shape = 'square';
+    }
+
+    nodes.push({
+      shape : ALIAS[shape],
+      label : m[2].replace(/\\n/g, '\n'),
+      link  : !!m[3]            // ada "->node" ?
+    });
+  });
+
+  // Bangun edge: kalau node punya "->node", sambung ke node berikutnya
+  for (let i = 0; i < nodes.length - 1; i++){
+    if (nodes[i].link) edges.push({ from:i, to:i+1 });
+  }
+  if (nodes.length && nodes[nodes.length - 1].link){
+    errors.push('Node terakhir memakai "->node" tetapi tidak ada node berikutnya.');
+  }
+
+  return { nodes, edges, errors };
+}
+
+/* =========================================================
+   3. LAYOUT  (hitung posisi & ukuran tiap node)
+   ========================================================= */
+const CHAR_W = 8.4;   // perkiraan lebar karakter pada font 14px
+const GAP    = 74;    // jarak antar node
+
+function measure(node){
+  const lines = node.label.split('\n');
+  const longest = Math.max(1, ...lines.map(l => l.length));
+  const textW = longest * CHAR_W;
+  const textH = lines.length * 19;
+
+  let w = Math.max(110, textW + 46);
+  let h = Math.max(58, textH + 34);
+
+  switch (node.shape){
+    case 'triangle':
+      w = Math.max(130, textW + 70);
+      h = Math.max(94, textH + 56);
+      break;
+    case 'diamond':
+      w = Math.max(150, textW * 1.7 + 46);
+      h = Math.max(96, textH + 58);
+      break;
+    case 'circle':
+    case 'ellipse':
+      w = Math.max(124, textW + 56);
+      h = Math.max(84, textH + 46);
+      break;
+    case 'hexagon':
+      w = Math.max(140, textW + 68);
+      break;
+    case 'cylinder':
+      h = Math.max(74, textH + 44);
+      break;
+  }
+  node.w = w;
+  node.h = h;
+  node.lines = lines;
+}
+
+function layout(nodes){
+  if (!nodes.length) return { width: 1, height: 1 };
+
+  nodes.forEach(measure);
+
+  const maxW = Math.max(...nodes.map(n => n.w));
+  let y = 0;
+  nodes.forEach(n => {
+    n.x = (maxW - n.w) / 2;
+    n.y = y;
+    y += n.h + GAP;
+  });
+
+  return { width: maxW, height: y - GAP };
+}
+
+/* =========================================================
+   4. RENDERER  (model -> SVG)
+   ========================================================= */
+function esc(s){
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function shapeSVG(n, color){
+  const { x, y, w, h, shape } = n;
+  const cx = x + w/2, cy = y + h/2;
+  const st = `fill="${color}22" stroke="${color}" stroke-width="2" stroke-linejoin="round"`;
+  const k  = Math.min(h * 0.28, 22);   // skew / lekukan
+
+  switch (shape){
+    case 'square':
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" ${st}/>`;
+
+    case 'round':
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h/2}" ${st}/>`;
+
+    case 'circle':
+    case 'ellipse':
+      return `<ellipse cx="${cx}" cy="${cy}" rx="${w/2}" ry="${h/2}" ${st}/>`;
+
+    case 'diamond':
+      return `<polygon points="${cx},${y} ${x+w},${cy} ${cx},${y+h} ${x},${cy}" ${st}/>`;
+
+    case 'triangle':
+      return `<polygon points="${cx},${y} ${x+w},${y+h} ${x},${y+h}" ${st}/>`;
+
+    case 'hexagon':
+      return `<polygon points="${x+w*0.22},${y} ${x+w*0.78},${y} ${x+w},${cy} ${x+w*0.78},${y+h} ${x+w*0.22},${y+h} ${x},${cy}" ${st}/>`;
+
+    case 'parallelogram':
+      return `<polygon points="${x+k},${y} ${x+w},${y} ${x+w-k},${y+h} ${x},${y+h}" ${st}/>`;
+
+    case 'cylinder': {
+      const ry = Math.min(h * 0.16, 15);
+      return `<path d="M${x},${y+ry}
+                       A${w/2},${ry} 0 0 1 ${x+w},${y+ry}
+                       L${x+w},${y+h-ry}
+                       A${w/2},${ry} 0 0 1 ${x},${y+h-ry} Z" ${st}/>
+              <path d="M${x},${y+ry} A${w/2},${ry} 0 0 0 ${x+w},${y+ry}"
+                    fill="none" stroke="${color}" stroke-width="2" opacity="0.7"/>`;
+    }
+
+    case 'document': {
+      const d = h * 0.16;
+      return `<path d="M${x},${y} L${x+w},${y} L${x+w},${y+h-d}
+                       Q${x+w*0.75},${y+h-d*2} ${x+w*0.5},${y+h-d}
+                       T${x},${y+h-d} Z" ${st}/>`;
+    }
+
+    default:
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" ${st}/>`;
+  }
+}
+
+function textSVG(n){
+  const cx = n.x + n.w/2;
+  const lh = 19;
+  // segitiga: teks digeser ke bawah karena bagian atas runcing
+  const baseY = n.shape === 'triangle'
+      ? n.y + n.h * 0.60
+      : n.y + n.h / 2;
+  const startY = baseY - ((n.lines.length - 1) * lh) / 2;
+
+  const tspans = n.lines.map((line, i) =>
+    `<tspan x="${cx}" dy="${i === 0 ? 0 : lh}">${esc(line)}</tspan>`
+  ).join('');
+
+  return `<text x="${cx}" y="${startY}" text-anchor="middle" dominant-baseline="middle"
+                font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+                font-size="14" font-weight="500" fill="#e6edf3">${tspans}</text>`;
+}
+
+function nodeSVG(n, color){
+  return `<g class="node">${shapeSVG(n, color)}${textSVG(n)}</g>`;
+}
+
+function edgeSVG(a, b){
+  const x1 = a.x + a.w/2, y1 = a.y + a.h;
+  const x2 = b.x + b.w/2, y2 = b.y - 2;
+  const c  = Math.max(24, (y2 - y1) * 0.45);
+  const d  = `M${x1},${y1} C${x1},${y1 + c} ${x2},${y2 - c} ${x2},${y2}`;
+  return `<path d="${d}" fill="none" stroke="#7d8590" stroke-width="2"
+                stroke-linecap="round" marker-end="url(#arrow)"/>`;
+}
+
+/* =========================================================
+   5. PIPELINE UTAMA
+   ========================================================= */
+const ta     = document.getElementById('src');
+const svg    = document.getElementById('canvas');
+const errBox = document.getElementById('errors');
+
+const DEFAULT_CODE =
+`# MiniMermaid — contoh diagram
+->[round]->text["Mulai"]->node
+->[diamond]->text["Kondisi\\nterpenuhi?"]->node
+->[square]->text["Proses data"]->node
+->[triangle]->text["Selesai"]
+
+# contoh bentuk lain
+->[cylinder]->text["Database"]
+->[hexagon]->text["Service A"]->node
+->[parallelogram]->text["Service B"]`;
+
+function render(){
+  const { nodes, edges, errors } = parse(ta.value);
+
+  // Tampilkan error
+  errBox.innerHTML = errors.map(e => `<div>⚠ ${esc(e)}</div>`).join('');
+
+  if (!nodes.length){
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', '0 0 100 100');
+    return;
+  }
+
+  const { width, height } = layout(nodes);
+  const PAD = 52;
+
+  let out = `<defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7d8590"/>
+    </marker>
+  </defs>`;
+
+  // edge digambar dulu supaya berada di belakang node
+  edges.forEach(e => { out += edgeSVG(nodes[e.from], nodes[e.to]); });
+  nodes.forEach((n, i) => { out += nodeSVG(n, PALETTE[i % PALETTE.length]); });
+
+  svg.setAttribute('viewBox', `${-PAD} ${-PAD} ${width + PAD*2} ${height + PAD*2}`);
+  svg.innerHTML = out;
+}
+
+/* =========================================================
+   6. EVENT
+   ========================================================= */
+ta.addEventListener('input', render);
+
+document.getElementById('download').addEventListener('click', () => {
+  const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = 'diagram.svg';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+ta.value = DEFAULT_CODE;
+render();
+</script>
+</body>
+</html>

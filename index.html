@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MiniMermaid — Diagram dari Teks</title>
+</head>
+<body>
+
+<header>
+  <h1>Mini<span>Mermaid</span></h1>
+  <div class="spacer"></div>
+  <button id="download">⬇ Download SVG</button>
+</header>
+
+<div class="app">
+  <section class="editor">
+    <div class="label">Kode Diagram</div>
+    <textarea id="src" spellcheck="false"></textarea>
+    <div class="help">
+      <b>Bentuk:</b>
+      <code>square</code> <code>round</code> <code>circle</code> <code>ellipse</code>
+      <code>diamond</code> <code>triangle</code> <code>hexagon</code>
+      <code>parallelogram</code> <code>cylinder</code> <code>document</code><br>
+      <b>Sambung:</b> tambahkan <code>-&gt;node</code> di akhir baris untuk
+      menyambung ke node berikutnya secara otomatis.<br>
+      <b>Baris baru dalam teks:</b> tulis <code>\n</code>
+    </div>
+  </section>
+
+  <section class="preview">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+    <div id="errors"></div>
+  </section>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
