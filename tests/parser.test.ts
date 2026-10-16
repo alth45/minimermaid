@@ -6,8 +6,8 @@ describe('parse', () => {
     const r = parse('-> [round] -> text ["Mulai"] -> node\n-> [diamond]->text["Ok?"]');
     expect(r.errors).toEqual([]);
     expect(r.nodes).toEqual([
-      { shape: 'round', label: 'Mulai', link: true },
-      { shape: 'diamond', label: 'Ok?', link: false },
+      { shape: 'round', label: 'Mulai', link: true, branch: false },
+      { shape: 'diamond', label: 'Ok?', link: false, branch: false },
     ]);
     expect(r.edges).toEqual([{ from: 0, to: 1 }]);
   });

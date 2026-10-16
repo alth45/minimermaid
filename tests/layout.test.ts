@@ -3,10 +3,11 @@ import { layout } from '../src/core/layout';
 import { LAYOUT } from '../src/core/config';
 import type { NodeSpec } from '../src/core/types';
 
-const node = (label: string, shape: NodeSpec['shape'] = 'square'): NodeSpec => ({
+const node = (label: string, shape: NodeSpec['shape'] = 'square', branch = false): NodeSpec => ({
   shape,
   label,
   link: false,
+  branch,
 });
 
 describe('layout', () => {

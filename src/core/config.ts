@@ -18,6 +18,10 @@ export const LAYOUT = {
   lineHeight: 19,
   /** Jarak antar node sepanjang arah layout (vertikal/horizontal). */
   gap: 74,
+  /** Jarak extra antar blok (rantai/percabangan) sepanjang arah layout. */
+  blockGap: 26,
+  /** Lebar minimum kolom label edge percabangan. */
+  branchLabelMinW: 40,
   /** Padding dasar ukuran node. */
   padX: 46,
   padY: 34,

@@ -22,12 +22,21 @@ export interface NodeSpec {
   readonly label: string;
   /** true bila baris diakhiri penanda `->node` (sambung ke node berikutnya). */
   readonly link: boolean;
+  /** true bila baris diawali penanda `[cabang]` → node percabangan. */
+  readonly branch: boolean;
+}
+
+/** Label sisi pada edge percabangan (opsional, mis. "Ya" / "Tidak"). */
+export interface EdgeLabel {
+  readonly text: string;
 }
 
 /** Sambungan antar node berdasarkan indeks dalam daftar node. */
 export interface EdgeSpec {
   readonly from: number;
   readonly to: number;
+  /** Teks kecil di tengah edge (dipakai cabang, mis. "Ya"/"Tidak"). */
+  readonly label?: string;
 }
 
 /** Arah penataan diagram. */

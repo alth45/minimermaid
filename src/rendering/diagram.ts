@@ -23,10 +23,17 @@ export function renderDiagram(geometry: DiagramGeometry): RenderedSvg {
 
   // Edge digambar dulu supaya berada di belakang node.
   const horizontal = geometry.direction === 'horizontal';
+  // Kelompokkan edge per node sumber; pasangan dari node `[cabang]`
+  // mendapat sisi 'yes' (edge pertama) dan 'no' (edge kedua).
+  const outCount = new Map<number, number>();
   for (const e of geometry.edges) {
     const a = geometry.nodes[e.from];
     const b = geometry.nodes[e.to];
-    if (a && b) parts.push(edgeSvg(a, b, horizontal));
+    if (!a || !b) continue;
+    const seen = outCount.get(e.from) ?? 0;
+    outCount.set(e.from, seen + 1);
+    const branch = a.branch ? (seen === 0 ? ('yes' as const) : ('no' as const)) : undefined;
+    parts.push(edgeSvg(a, b, horizontal, branch, e.label));
   }
   geometry.nodes.forEach((n, i) => {
     parts.push(nodeSvg(n, PALETTE[i % PALETTE.length] ?? PALETTE[0] ?? '#58a6ff'));
