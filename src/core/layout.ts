@@ -168,28 +168,18 @@ export function layout(
       idx += blk.indices.length;
       continue;
     }
-    // Pecah blok linear menjadi unit seukuran node — kecuali node pertama
-    // memakai `->node`, maka ia digabung dengan node berikutnya menjadi satu
-    // unit sepasang (persis seperti layout pra-cabang).
-    let i = 0;
-    while (i < members.length) {
-      const a = members[i] as MeasuredNode;
-      const b = members[i + 1];
-      const paired = a.link === true && b !== undefined;
-      const indices = paired ? [blk.indices[i] as number, blk.indices[i + 1] as number] : [blk.indices[i] as number];
-      const mainSize = paired
-        ? (direction === 'horizontal' ? a.w + b.w : a.h + b.h) + LAYOUT.gap
-        : direction === 'horizontal' ? a.w : a.h;
-      const crossSize = paired
-        ? Math.max(direction === 'horizontal' ? a.h : a.w, direction === 'horizontal' ? b.h : b.w)
-        : direction === 'horizontal' ? a.h : a.w;
-      units.push({ kind: 'linear', indices, mainSize, crossSize });
-      i += paired ? 2 : 1;
-    }
+    // Blok linear menjadi SATU unit utuh — persis seperti layout pra-cabang:
+    // setiap node rata tengah pada kanvas penuh, jarak antar node = gap.
+    const mainSize =
+      members.reduce((sum, m) => sum + (direction === 'horizontal' ? m.w : m.h), 0) +
+      LAYOUT.gap * Math.max(0, members.length - 1);
+    const crossSize = Math.max(
+      ...members.map((m) => (direction === 'horizontal' ? m.h : m.w)),
+    );
+    units.push({ kind: 'linear', indices: blk.indices, mainSize, crossSize });
     idx += blk.indices.length;
   }
 
-  const hasBranch = units.some((u) => u.kind === 'branch');
   const maxCross = Math.max(...units.map((u) => u.crossSize));
   const totalMain =
     units.reduce((sum, u) => sum + u.mainSize, 0) + LAYOUT.gap * Math.max(0, units.length - 1);
@@ -258,11 +248,9 @@ export function layout(
         const m = measured[i] as MeasuredNode;
         const mainSize = direction === 'horizontal' ? m.w : m.h;
         const crossSize = direction === 'horizontal' ? m.h : m.w;
-        // Tanpa cabang: setiap node rata tengah pada kanvas penuh (perilaku lama).
-        // Dengan cabang: node rata tengah dalam bloknya, blok digeser ke tengah kanvas.
-        const crossPos = hasBranch
-          ? crossBase + (block.crossSize - crossSize) / 2
-          : (maxCross - crossSize) / 2;
+        // Semua node (dengan atau tanpa cabang) rata tengah pada kanvas penuh
+        // — persis perilaku layout pra-cabang.
+        const crossPos = (maxCross - crossSize) / 2;
         if (direction === 'horizontal') place(i, inner, crossPos);
         else place(i, crossPos, inner);
         inner += mainSize + LAYOUT.gap;

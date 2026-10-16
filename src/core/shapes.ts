@@ -17,7 +17,27 @@ const ALIAS: Record<string, ShapeKind> = {
   parallelogram: 'parallelogram', jajargenjang: 'parallelogram',
   cylinder: 'cylinder', database: 'cylinder', db: 'cylinder', silinder: 'cylinder',
   document: 'document', doc: 'document', dokumen: 'document',
+
 };
+
+/**
+ * Penanda bentuk untuk sintaks percabangan satu-baris `[cabang]`:
+ *   ->[cabang]->text["Keputusan?"]      → node sumber cabang
+ *   ->[ya]->text["Berhasil"]            → sisi "ya"
+ *   ->[tidak]->text["Gagal"]            → sisi "tidak"
+ */
+export type BranchRole = 'source' | 'yes' | 'no';
+
+const BRANCH_SHAPE_ALIASES: Record<string, BranchRole> = {
+  cabang: 'source', branch: 'source', if: 'source',
+  ya: 'yes', yes: 'yes',
+  tidak: 'no', no: 'no',
+};
+
+/** Kenali token bentuk sebagai penanda cabang (case-insensitive). */
+export function resolveBranchRole(token: string): BranchRole | undefined {
+  return BRANCH_SHAPE_ALIASES[token.trim().toLowerCase()];
+}
 
 /**
  * Selesaikan token bentuk (case-insensitive) ke nilai kanonik.
