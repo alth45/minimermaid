@@ -42,6 +42,19 @@ export interface EdgeSpec {
 /** Arah penataan diagram. */
 export type Direction = 'vertical' | 'horizontal';
 
+/**
+ * Pengukur lebar teks yang bisa disuntik ke pipeline layout (Issue #6).
+ * Default-nya heuristik perkiraan (`panjang × LAYOUT.charWidth`); UI dapat
+ * menyuntik implementasi berbasis `canvas.measureText()` agar label dengan
+ * karakter lebar (CJK/emoji) tidak tumpah dari node. Implementasi harus
+ * bebas DOM di sisi core — detail pengukuran (mis. konteks canvas) menjadi
+ * tanggung jawab penyedia measurer.
+ */
+export interface TextMeasurer {
+  /** Lebar horizontal (px) dari satu baris teks pada font diagram. */
+  measure(text: string): number;
+}
+
 /** Hasil parsing: model + daftar error sintaks (bukan exception). */
 export interface ParseResult {
   readonly nodes: NodeSpec[];
