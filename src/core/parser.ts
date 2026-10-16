@@ -9,12 +9,36 @@ import { resolveShape } from './shapes';
    ========================================================= */
 
 /**
- * Grambar satu baris:
+ * Grambar satu baris node biasa:
  *   `->[shape]->text["Label"]->node`
  * Bagian `text|label|txt` dan `->node` bersifat opsional.
  */
 const LINE_PATTERN =
   /^->\s*\[\s*([A-Za-z_][A-Za-z0-9_]*)\s*\]\s*->\s*(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\]\s*(->\s*node)?\s*$/;
+
+/**
+ * Grambar satu baris PERCABANGAN (cabang):
+ *   `[cabang]->[shape]->text["Label"]->node`
+ * Diakhiri dua sisi cabang, masing-masing opsional berlabel:
+ *   `->ya["Ya"]->node` / `->tidak["Tidak"]->node` / `->node` (tanpa label)
+ * Alias penanda: `[branch]`, `[if]`. Alias sisi: yes/ya, no/tidak.
+ */
+const BRANCH_MARKER_PATTERN = /^\[(cabang|branch|if)\]/i;
+
+function branchLinePattern(marker: string): RegExp {
+  return new RegExp(
+    String.raw`^\[` + marker + String.raw`\]\s*->\s*\[\s*([A-Za-z_][A-Za-z0-9_]*)\s*\]\s*->\s*` +
+      String.raw`(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\]\s*->\s*node\s*` +
+      // Sisi "ya" (opsional): ->node  ATAU  ->ya["..."]->node
+      String.raw`(?:->\s*(?:ya|yes)\s*(?:\[\s*"([^"]*)"\s*\])?\s*->\s*node\s*)?` +
+      // Sisi "tidak" (opsional): ->node  ATAU  ->tidak["..."]->node
+      String.raw`(?:->\s*(?:tidak|no)\s*(?:\[\s*"([^"]*)"\s*\])?\s*->\s*node\s*)?$`,
+    'i',
+  );
+}
+
+/** Label bawaan untuk kedua sisi percabangan. */
+const DEFAULT_BRANCH_LABELS = { yes: 'Ya', no: 'Tidak' } as const;
 
 /**
  * Direktif arah pada baris pertama (sebelum node mana pun):
@@ -40,6 +64,13 @@ export function parse(source: string): ParseResult {
   let direction: Direction = 'vertical';
   let directiveSeen = false;
 
+  /** Info percabangan mentah per baris (indeks sejajar dengan `nodes`). */
+  interface RawBranch {
+    readonly yesLabel?: string;
+    readonly noLabel?: string;
+  }
+  const rawBranches: (RawBranch | undefined)[] = [];
+
   source.split(/\r?\n/).forEach((raw, index) => {
     const line = raw.trim();
     // Abaikan baris kosong & komentar.
@@ -60,6 +91,33 @@ export function parse(source: string): ParseResult {
       }
     }
 
+    // --- Baris PERCABANGAN? ---
+    const markerMatch = BRANCH_MARKER_PATTERN.exec(line);
+    const markerToken = markerMatch?.[1];
+    if (markerMatch && markerToken !== undefined) {
+      const match = branchLinePattern(markerToken).exec(line);
+      const shapeToken = match?.[1];
+      const labelToken = match?.[2];
+      if (!match || shapeToken === undefined || labelToken === undefined) {
+        errors.push(`Baris ${index + 1}: sintaks cabang tidak dikenal → ${line}`);
+        return;
+      }
+      let shape = resolveShape(shapeToken);
+      if (shape === undefined) {
+        errors.push(`Baris ${index + 1}: bentuk "${shapeToken.toLowerCase()}" tidak dikenal, dipakai 'square'.`);
+        shape = 'square';
+      }
+      nodes.push({
+        shape,
+        label: labelToken.replace(/\\n/g, '\n'),
+        link: true, // cabang selalu menyambung ke node berikutnya
+        branch: true,
+      });
+      rawBranches.push({ yesLabel: match[3], noLabel: match[4] });
+      return;
+    }
+
+    // --- Baris node biasa ---
     const match = LINE_PATTERN.exec(line);
     const shapeToken = match?.[1];
     const labelToken = match?.[2];
@@ -79,12 +137,25 @@ export function parse(source: string): ParseResult {
       // Dukung eskap `\n` literal di dalam label menjadi baris baru.
       label: labelToken.replace(/\\n/g, '\n'),
       link: match[3] !== undefined,
+      branch: false,
     });
+    rawBranches.push(undefined);
   });
 
-  // Bangun edge: node bertanda `->node` menyambung ke node berikutnya.
+  // Bangun edge. Node bertanda `->node` menyambung ke node berikutnya;
+  // node cabang menghasilkan DUA edge berlabel ("Ya"/"Tidak") yang sama-sama
+  // menunjuk ke node berikutnya.
   for (let i = 0; i < nodes.length - 1; i++) {
-    if (nodes[i]?.link) edges.push({ from: i, to: i + 1 });
+    const node = nodes[i];
+    const next = nodes[i + 1];
+    if (!node || !next) continue;
+    if (node.branch) {
+      const info = rawBranches[i];
+      edges.push({ from: i, to: i + 1, label: info?.yesLabel ?? DEFAULT_BRANCH_LABELS.yes });
+      edges.push({ from: i, to: i + 1, label: info?.noLabel ?? DEFAULT_BRANCH_LABELS.no });
+    } else if (node.link) {
+      edges.push({ from: i, to: i + 1 });
+    }
   }
   const last = nodes[nodes.length - 1];
   if (last?.link) {
