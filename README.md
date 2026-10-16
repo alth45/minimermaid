@@ -6,7 +6,7 @@
 
 ![Stack](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Build](https://img.shields.io/badge/build-Vite%207-646CFF)
-![Tests](https://img.shields.io/badge/tests-Vitest-29%2F29%20lulus-brightgreen)
+![Tests](https://img.shields.io/badge/tests-Vitest-40%2F40%20lulus-brightgreen)
 
 ---
 
@@ -15,12 +15,13 @@
 - **10 bentuk node**: `square`, `round`, `circle`, `ellipse`, `diamond`, `triangle`, `hexagon`, `parallelogram`, `cylinder`, `document`
 - **Alias Indonesia & Inggris**: `kotak`, `segitiga`, `db`, `dokumen`, `belahketupat`, …
 - **Arah layout**: tulis `[horizontal]` (atau `[vertikal]`) di baris pertama untuk menata diagram kiri→kanan; default tetap atas→bawah
+- **Percabangan ya/tidak**: awali baris dengan `[cabang]` untuk membuat node keputusan dengan dua sisi berlabel (default "Ya"/"Tidak", boleh diganti)
 - **Sambungan otomatis**: tambahkan `->node` di akhir baris untuk menyambung ke node berikutnya
 - **Label multi-baris** dengan `\n`, **komentar** `#` dan `//`
 - **Error non-fatal**: pesan error ditampilkan di panel sambil tetap merender hasil parsial
 - **Download SVG** satu klik
 - **Tema gelap** ala GitHub + tata letak responsif (mobile: editor di atas, preview di bawah)
-- **Tanpa dependensi runtime** — murni TypeScript, bundle ± 3.5 kB (gzip)
+- **Tanpa dependensi runtime** — murni TypeScript, hasil build ringan (HTML + CSS + JS)
 
 ---
 
@@ -101,6 +102,37 @@ Catatan:
 
 - Direktif bersifat case-insensitive dan boleh diberi teks tambahan di belakangnya (mis. `[horizontal] flowchart LR`).
 - Hanya dikenali sebelum node pertama; jika ditulis setelah ada node, baris tersebut dilaporkan sebagai sintaks tidak dikenal.
+- Percabangan juga didukung pada layout horizontal: kedua sisi ditata dalam lajur sejajar kiri→kanan.
+
+### Percabangan `[cabang]`
+
+Awali baris dengan `[cabang]` (alias: `[branch]`, `[if]`) untuk membuat node keputusan yang menghasilkan **dua edge berlabel** ke dua node berikutnya:
+
+```
+->[round]->text["Mulai"]->node
+[cabang]->[diamond]->text["Lulus?"]
+->ya["Ya"]->node
+->tidak["Tidak"]
+->[square]->text["Selesai"]
+```
+
+| Bagian | Keterangan |
+|---|---|
+| `[cabang]->[bentuk]->text["Label"]` | Node sumber percabangan (biasanya `diamond`) |
+| `->ya["Label"]` / `->yes[...]` | Sisi "ya"; label pada kurung menjadi teks edge (default: `Ya`). Baris boleh ditutup `->node` agar sisi ini menyambung ke node berikutnya |
+| `->tidak["Label"]` / `->no[...]` | Sisi "tidak"; aturan sama seperti `->ya` |
+
+Aturan main:
+
+- Kedua sisi boleh ditulis sebagian; sisi yang tidak ditulis memakai label default (`Ya`/`Tidak`) dan bentuk bawaan (`round` untuk ya, `diamond` untuk tidak).
+- Baris `->ya[...]` / `->tidak[...]` boleh ditutup `->node`; jika tidak, node sisi menjadi terminal dan baris selanjutnya melanjutkan alur dari node terakhir.
+- Tersedia pula gaya satu-baris penuh: sumber + kedua sisi ditulis sekaligus dengan segmen `[ya]`/`[tidak]`:
+
+  ```
+  [cabang]->[diamond]->text["Login?"]->node->[ya]->text["OK"]->node->[tidak]->text["Gagal"]
+  ```
+
+  Pada gaya ini label dalam kurung (`"OK"`/`"Gagal"`) dipakai sebagai teks edge, dan token `[ya]`/`[tidak]` sendiri belum terdaftar sebagai bentuk sehingga memunculkan pesan *fallback* non-fatal.
 
 ### Daftar Bentuk & Alias
 
@@ -134,7 +166,8 @@ Proyek ini memakai pemisahan berlapis agar logika inti bebas DOM dan mudah dites
 ├─────────────────────────────────────────────────────┤
 │  core/          DOMAIN MURNI — tanpa DOM, teruji    │
 │    parser.ts ─── teks → model (nodes/edges/errors)  │
-│    layout.ts ─── ukur & tempatkan node (vertikal)   │
+│    layout.ts ─── ukur & tempatkan node (vertikal/   │
+│                  horizontal, blok percabangan)      │
 │    compile.ts ── pipeline parse → layout → render   │
 │    shapes.ts ─── registry alias bentuk              │
 │    types.ts ──── definisi tipe domain               │
@@ -193,9 +226,10 @@ diagram/
 │  │  ├─ dom.ts  editor.ts  preview.ts  app.ts
 │  └─ styles/main.css         # tema gelap + layout responsif
 └─ tests/
-   ├─ parser.test.ts          # sintaks, alias, komentar, error
-   ├─ layout.test.ts          # penumpukan, centering, ukuran minimum
-   └─ compile.test.ts         # ujung-ke-ujung: teks → SVG, escape, 10 bentuk
+   ├─ parser.test.ts          # sintaks, alias, komentar, direktif arah, error
+   ├─ layout.test.ts          # penumpukan vertikal/horizontal, centering, ukuran minimum
+   ├─ compile.test.ts         # ujung-ke-ujung: teks → SVG, escape, edge berarah
+   └─ _verify.test.ts         # skrip dump internal (debug, bukan test regresi)
 ```
 
 ---
@@ -206,11 +240,11 @@ diagram/
 npm test
 ```
 
-Cakupan test (29 kasus, seluruhnya lulus):
+Cakupan test (40 test, seluruhnya lulus — 39 kasus regresi di 3 file plus 1 test dump internal `tests/_verify.test.ts`):
 
-- **Parser** — tokenisasi bentuk/label/link, alias Indonesia, komentar, eskap `\n`, rantai edge, pesan error bernomor baris.
-- **Layout** — penumpukan vertikal dengan gap konstan, rata tengah, ukuran minimum per bentuk, pemecahan label multi-baris.
-- **Compile/Render** — viewBox valid, marker panah, escape karakter XML berbahaya (`<script>` → `&lt;script&gt;`), ke-10 bentuk menghasilkan elemen SVG yang benar, hasil parsial saat ada error.
+- **Parser (14)** — tokenisasi bentuk/label/link, alias Indonesia, komentar, eskap `\n`, rantai edge, pesan error bernomor baris, direktif arah `[horizontal]`/`[vertikal]` beserta alias dan posisinya.
+- **Layout (8)** — penumpukan vertikal & horizontal dengan gap konstan, rata tengah, ukuran minimum per bentuk, pemecahan label multi-baris, default arah.
+- **Compile/Render (17)** — viewBox valid, kanvas kosong untuk sumber kosong, escape karakter XML berbahaya (`<script>` → `&lt;script&gt;`), marker panah pada edge bertaut, ke-10 bentuk menghasilkan elemen SVG yang benar (via `it.each`), edge horizontal (kanan→kiri) saat `[horizontal]`, hasil parsial saat ada error, kesetaraan `[vertikal]` eksplisit dengan default.
 
 ---
 
