@@ -6,7 +6,7 @@
 
 ![Stack](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Build](https://img.shields.io/badge/build-Vite%207-646CFF)
-![Tests](https://img.shields.io/badge/tests-Vitest-40%2F40%20lulus-brightgreen)
+![Tests](https://img.shields.io/badge/tests-Vitest-46%2F46%20lulus-brightgreen)
 
 ---
 
@@ -163,6 +163,8 @@ Proyek ini memakai pemisahan berlapis agar logika inti bebas DOM dan mudah dites
 │    app.ts ────── orkestrasi event & download        │
 │    editor.ts ─── pembungkus textarea                │
 │    preview.ts ── menampilkan SVG + daftar error     │
+│    canvas-measurer.ts ─ TextMeasurer berbasis       │
+│                  canvas.measureText() (Issue #6)    │
 ├─────────────────────────────────────────────────────┤
 │  core/          DOMAIN MURNI — tanpa DOM, teruji    │
 │    parser.ts ─── teks → model (nodes/edges/errors)  │
@@ -200,8 +202,9 @@ source (string)
 Prinsip yang dipegang:
 
 1. **`core/` dan `rendering/` tidak menyentuh `document`** — semua fungsi murni, sehingga seluruh unit test bisa berjalan di Node tanpa browser.
-2. **Error dikumpulkan sebagai data** (array string), bukan exception, agar UI bisa menampilkan semua masalah sekaligus sambil tetap merender hasil parsial.
-3. **Menambah bentuk baru** hanya perlu: tambahkan 1 entri di `ShapeKind` (`core/types.ts`), 1 alias di `core/shapes.ts`, 1 ukuran minimum di `core/layout.ts`, dan 1 renderer di `rendering/shapes.ts`.
+2. **Pengukuran teks bisa disuntik (`TextMeasurer`, Issue #6)** — `layout()`/`compile()` default memakai heuristik `panjang × charWidth`; UI menyuntik measurer berbasis `canvas.measureText()` (dengan cache per teks/font) agar label berkarakter lebar (CJK/emoji) tidak tumpah dari node, tanpa layer core mengenal DOM.
+3. **Error dikumpulkan sebagai data** (array string), bukan exception, agar UI bisa menampilkan semua masalah sekaligus sambil tetap merender hasil parsial.
+4. **Menambah bentuk baru** hanya perlu: tambahkan 1 entri di `ShapeKind` (`core/types.ts`), 1 alias di `core/shapes.ts`, 1 ukuran minimum di `core/layout.ts`, dan 1 renderer di `rendering/shapes.ts`.
 
 ---
 
@@ -224,11 +227,13 @@ diagram/
 │  │  ├─ edge.ts  diagram.ts
 │  ├─ ui/
 │  │  ├─ dom.ts  editor.ts  preview.ts  app.ts
+│  │  ├─ canvas-measurer.ts   # TextMeasurer canvas (Issue #6)
 │  └─ styles/main.css         # tema gelap + layout responsif
 └─ tests/
    ├─ parser.test.ts          # sintaks, alias, komentar, direktif arah, error
    ├─ layout.test.ts          # penumpukan vertikal/horizontal, centering, ukuran minimum
    ├─ compile.test.ts         # ujung-ke-ujung: teks → SVG, escape, edge berarah
+   ├─ measurer.test.ts        # injeksi TextMeasurer, CJK/emoji, regresi default
    └─ _verify.test.ts         # skrip dump internal (debug, bukan test regresi)
 ```
 
@@ -240,11 +245,12 @@ diagram/
 npm test
 ```
 
-Cakupan test (40 test, seluruhnya lulus — 39 kasus regresi di 3 file plus 1 test dump internal `tests/_verify.test.ts`):
+Cakupan test (46 test, seluruhnya lulus — 45 kasus regresi di 4 file plus 1 test dump internal `tests/_verify.test.ts`):
 
 - **Parser (14)** — tokenisasi bentuk/label/link, alias Indonesia, komentar, eskap `\n`, rantai edge, pesan error bernomor baris, direktif arah `[horizontal]`/`[vertikal]` beserta alias dan posisinya.
 - **Layout (8)** — penumpukan vertikal & horizontal dengan gap konstan, rata tengah, ukuran minimum per bentuk, pemecahan label multi-baris, default arah.
 - **Compile/Render (17)** — viewBox valid, kanvas kosong untuk sumber kosong, escape karakter XML berbahaya (`<script>` → `&lt;script&gt;`), marker panah pada edge bertaut, ke-10 bentuk menghasilkan elemen SVG yang benar (via `it.each`), edge horizontal (kanan→kiri) saat `[horizontal]`, hasil parsial saat ada error, kesetaraan `[vertikal]` eksplisit dengan default.
+- **Measurer (6, Issue #6)** — heuristik bawaan tetap `panjang × charWidth`, measurer suntikan memperlebar node sesuai metrik karakter lebar (CJK), measurer nol tidak menembus ukuran minimum, pemilihan baris terpanjang multi-baris, `compile()` meneruskan opsi `measure` (viewBox ikut melebar), dan regresi: tanpa opsi hasilnya identik dengan perilaku lama.
 
 ---
 

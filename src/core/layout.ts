@@ -1,4 +1,4 @@
-import type { DiagramGeometry, Direction, EdgeSpec, NodeSpec, PositionedNode, ShapeKind } from './types';
+import type { DiagramGeometry, Direction, EdgeSpec, NodeSpec, PositionedNode, ShapeKind, TextMeasurer } from './types';
 import { LAYOUT } from './config';
 
 /* =========================================================
@@ -11,12 +11,24 @@ import { LAYOUT } from './config';
 /** Node yang sudah diukur tapi belum ditempatkan (tanpa x/y). */
 type MeasuredNode = Omit<PositionedNode, 'x' | 'y'>;
 
-/** Hitung jumlah baris & dimensi teks kasar dari label. */
-function measureText(label: string): { textW: number; textH: number; lines: string[] } {
+/**
+ * Pengukur bawaan (Issue #6): heuristik lama `panjang × charWidth`.
+ * Tidak mengenal metrik font sebenarnya, sehingga karakter lebar
+ * (CJK/emoji) bisa tumpah dari node — dipakai hanya bila UI tidak
+ * menyuntik measurer lain.
+ */
+export const heuristicMeasurer: TextMeasurer = {
+  measure(text: string): number {
+    return text.length * LAYOUT.charWidth;
+  },
+};
+
+/** Hitung jumlah baris & dimensi teks dari label via measurer yang disuntik. */
+function measureText(label: string, measurer: TextMeasurer): { textW: number; textH: number; lines: string[] } {
   const lines = label.split('\n');
-  const longest = Math.max(1, ...lines.map((l) => l.length));
+  const textW = Math.max(measurer.measure(''), ...lines.map((l) => measurer.measure(l)));
   return {
-    textW: longest * LAYOUT.charWidth,
+    textW,
     textH: lines.length * LAYOUT.lineHeight,
     lines,
   };
@@ -51,8 +63,8 @@ function sizeForShape(shape: ShapeKind, textW: number, textH: number): { w: numb
 }
 
 /** Ukur satu node: hasilkan dimensi & pecahan baris label. */
-function measureNode(spec: PositionedNode): MeasuredNode {
-  const { textW, textH, lines } = measureText(spec.label);
+function measureNode(spec: PositionedNode, measurer: TextMeasurer): MeasuredNode {
+  const { textW, textH, lines } = measureText(spec.label, measurer);
   const { w, h } = sizeForShape(spec.shape, textW, textH);
   return { shape: spec.shape, label: spec.label, link: spec.link, branch: spec.branch, w, h, lines };
 }
@@ -139,19 +151,23 @@ function branchExtent(
  * - `horizontal`: dibariskan kiri→kanan, rata tengah pada baris setinggi blok terlentang.
  * Percabangan `[cabang]` ditempatkan sebagai satu unit: node sumber diikuti
  * dua node tujuan yang saling bersebelahan melintang arah layout.
+ * @param measurer Pengukur lebar teks (Issue #6). Default: heuristik
+ *   `panjang × charWidth`; UI menyuntik measurer berbasis canvas agar
+ *   karakter lebar (CJK/emoji) tidak membuat label tumpah dari node.
  * @returns Geometri lengkap (posisi, ukuran, arah, dimensi total).
  */
 export function layout(
   nodes: readonly NodeSpec[],
   edges: readonly EdgeSpec[],
   direction: Direction = 'vertical',
+  measurer: TextMeasurer = heuristicMeasurer,
 ): DiagramGeometry {
   if (nodes.length === 0) {
     return { nodes: [], edges: [], width: 1, height: 1, direction };
   }
 
   const measured = nodes.map((n) =>
-    measureNode({ ...n, x: 0, y: 0, w: 0, h: 0, lines: [] }),
+    measureNode({ ...n, x: 0, y: 0, w: 0, h: 0, lines: [] }, measurer),
   );
 
   // Setiap "unit" sepanjang arah utama punya stride-nya sendiri:
