@@ -48,4 +48,25 @@ describe('compile', () => {
     expect(r.errors).toHaveLength(1);
     expect(r.markup).toContain('class="node"');
   });
+
+  it('menggambar edge horizontal (kanan→kiri) saat [horizontal]', () => {
+    const v = compile('-> [square]->text["A"]->node\n-> [square]->text["B"]');
+    const h = compile('[horizontal]\n-> [square]->text["A"]->node\n-> [square]->text["B"]');
+    expect(h.errors).toEqual([]);
+    // viewBox horizontal: lebar > tinggi; vertikal sebaliknya.
+    const [hw, hh] = h.viewBox.split(' ').slice(2).map(Number);
+    const [vw, vh] = v.viewBox.split(' ').slice(2).map(Number);
+    expect(hw!).toBeGreaterThan(vw!);
+    expect(hh!).toBeLessThan(vh!);
+    // Edge horizontal berakhir di sisi kiri node tujuan (b.x - 2),
+    // yaitu koordinat y konstan di tengah node — berbeda dari vertikal.
+    expect(h.markup).not.toBe(v.markup);
+  });
+
+  it('[vertikal] eksplisit menghasilkan layout sama dengan default', () => {
+    const d = compile('-> [square]->text["A"]->node\n-> [square]->text["B"]');
+    const e = compile('[vertikal]\n-> [square]->text["A"]->node\n-> [square]->text["B"]');
+    expect(e.markup).toBe(d.markup);
+    expect(e.viewBox).toBe(d.viewBox);
+  });
 });

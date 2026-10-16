@@ -22,10 +22,11 @@ export function renderDiagram(geometry: DiagramGeometry): RenderedSvg {
   const parts: string[] = [ARROW_DEFS];
 
   // Edge digambar dulu supaya berada di belakang node.
+  const horizontal = geometry.direction === 'horizontal';
   for (const e of geometry.edges) {
     const a = geometry.nodes[e.from];
     const b = geometry.nodes[e.to];
-    if (a && b) parts.push(edgeSvg(a, b));
+    if (a && b) parts.push(edgeSvg(a, b, horizontal));
   }
   geometry.nodes.forEach((n, i) => {
     parts.push(nodeSvg(n, PALETTE[i % PALETTE.length] ?? PALETTE[0] ?? '#58a6ff'));

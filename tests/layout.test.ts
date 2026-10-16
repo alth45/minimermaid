@@ -54,4 +54,34 @@ describe('layout', () => {
     expect(n?.lines).toEqual(['Satu', 'Dua', 'Tiga']);
     expect(n && n.h).toBeGreaterThanOrEqual(3 * LAYOUT.lineHeight);
   });
+
+  it('menyusun node horizontal kiri→kanan dengan gap konstan', () => {
+    const nodes = [node('A'), node('B'), node('C')];
+    const g = layout(nodes, [], 'horizontal');
+    expect(g.direction).toBe('horizontal');
+    expect(g.nodes).toHaveLength(3);
+    const [a, b, c] = g.nodes;
+    if (a && b && c) {
+      expect(b.x).toBe(a.x + a.w + LAYOUT.gap);
+      expect(c.x).toBe(b.x + b.w + LAYOUT.gap);
+    }
+    // Lebar total = akumulasi lebar + gap; tinggi = node tertinggi.
+    const last = g.nodes[g.nodes.length - 1];
+    expect(g.width).toBe((last?.x ?? 0) + (last?.w ?? 0));
+    expect(g.height).toBe(Math.max(...g.nodes.map((n) => n.h)));
+  });
+
+  it('merata tengahkan node yang lebih pendek pada baris horizontal', () => {
+    const nodes = [node('Pendek'), node('Label yang jauh lebih panjang sekali\nEkstra')];
+    const g = layout(nodes, [], 'horizontal');
+    const maxH = g.height;
+    for (const n of g.nodes) {
+      expect(n.y).toBeCloseTo((maxH - n.h) / 2);
+    }
+  });
+
+  it('default arah tetap vertikal bila parameter tidak diberikan', () => {
+    const g = layout([node('A')], []);
+    expect(g.direction).toBe('vertical');
+  });
 });
