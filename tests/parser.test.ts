@@ -63,4 +63,38 @@ describe('parse', () => {
     expect(r.errors).toEqual([]);
     expect(r.nodes.map((n) => n.label)).toEqual(['A', 'B', 'C', 'D']);
   });
+
+  it('arah default adalah vertikal tanpa direktif', () => {
+    const r = parse('-> [square]->text["A"]');
+    expect(r.direction).toBe('vertical');
+    expect(r.errors).toEqual([]);
+  });
+
+  it('mengenali direktif [horizontal] di baris pertama', () => {
+    const r = parse('[horizontal]\n-> [square]->text["A"]');
+    expect(r.direction).toBe('horizontal');
+    expect(r.errors).toEqual([]);
+    expect(r.nodes).toHaveLength(1);
+  });
+
+  it('mengenali alias arah: horiz, lr, vertical, vertikal, tb (case-insensitive)', () => {
+    expect(parse('[Horizontal]\n-> [square]->text["A"]').direction).toBe('horizontal');
+    expect(parse('[horiz]\n-> [square]->text["A"]').direction).toBe('horizontal');
+    expect(parse('[lr]\n-> [square]->text["A"]').direction).toBe('horizontal');
+    expect(parse('[VERTICAL]\n-> [square]->text["A"]').direction).toBe('vertical');
+    expect(parse('[vertikal]\n-> [square]->text["A"]').direction).toBe('vertical');
+    expect(parse('[tb]\n-> [square]->text["A"]').direction).toBe('vertical');
+  });
+
+  it('direktif boleh disertai teks tambahan dan komentar sebelum node', () => {
+    const r = parse('# judul\n[horizontal] flowchart LR\n-> [square]->text["A"]');
+    expect(r.direction).toBe('horizontal');
+    expect(r.errors).toEqual([]);
+  });
+
+  it('direktif setelah node pertama tidak berlaku & dilaporkan sebagai error', () => {
+    const r = parse('-> [square]->text["A"]\n[horizontal]\n-> [square]->text["B"]');
+    expect(r.direction).toBe('vertical');
+    expect(r.errors.some((e) => e.includes('Baris 2'))).toBe(true);
+  });
 });

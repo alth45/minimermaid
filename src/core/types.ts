@@ -30,11 +30,16 @@ export interface EdgeSpec {
   readonly to: number;
 }
 
+/** Arah penataan diagram. */
+export type Direction = 'vertical' | 'horizontal';
+
 /** Hasil parsing: model + daftar error sintaks (bukan exception). */
 export interface ParseResult {
   readonly nodes: NodeSpec[];
   readonly edges: EdgeSpec[];
   readonly errors: string[];
+  /** Arah layout, ditentukan direktif `[horizontal]`/`[vertikal]` di awal kode. */
+  readonly direction: Direction;
 }
 
 /** Node yang sudah diukur & ditempatkan oleh layout. */
@@ -53,6 +58,8 @@ export interface DiagramGeometry {
   readonly edges: readonly EdgeSpec[];
   readonly width: number;
   readonly height: number;
+  /** Arah penataan node (dipakai renderer untuk menggambar edge). */
+  readonly direction: Direction;
 }
 
 /** Keluaran renderer SVG: markup + viewBox-nya. */

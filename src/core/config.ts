@@ -16,7 +16,7 @@ export const LAYOUT = {
   charWidth: 8.4,
   /** Tinggi satu baris teks. */
   lineHeight: 19,
-  /** Jarak vertikal antar node. */
+  /** Jarak antar node sepanjang arah layout (vertikal/horizontal). */
   gap: 74,
   /** Padding dasar ukuran node. */
   padX: 46,

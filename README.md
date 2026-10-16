@@ -14,6 +14,7 @@
 
 - **10 bentuk node**: `square`, `round`, `circle`, `ellipse`, `diamond`, `triangle`, `hexagon`, `parallelogram`, `cylinder`, `document`
 - **Alias Indonesia & Inggris**: `kotak`, `segitiga`, `db`, `dokumen`, `belahketupat`, …
+- **Arah layout**: tulis `[horizontal]` (atau `[vertikal]`) di baris pertama untuk menata diagram kiri→kanan; default tetap atas→bawah
 - **Sambungan otomatis**: tambahkan `->node` di akhir baris untuk menyambung ke node berikutnya
 - **Label multi-baris** dengan `\n`, **komentar** `#` dan `//`
 - **Error non-fatal**: pesan error ditampilkan di panel sambil tetap merender hasil parsial
@@ -77,6 +78,29 @@ Aturan tambahan:
 - Komentar diawali `#` atau `//`.
 - Tulis `\n` di dalam label untuk membuat baris baru.
 - Node terakhir dengan `->node` akan menghasilkan peringatan (tidak ada node berikutnya untuk disambung).
+
+### Direktif Arah `[horizontal]`
+
+Tulis direktif pada **baris pertama** (sebelum node mana pun) untuk mengubah arah tata letak:
+
+```
+[horizontal]
+->[round]->text["Mulai"]->node
+->[diamond]->text["Kondisi?"]->node
+->[square]->text["Proses data"]
+```
+
+Diagram di atas tersusun **kiri→kanan**; tanpa direktif, node ditumpuk **atas→bawah** (vertikal).
+
+| Direktif | Efek |
+|---|---|
+| `[horizontal]` (alias: `[horiz]`, `[lr]`) | Node dibariskan kiri→kanan, edge digambar dari sisi kanan ke sisi kiri node berikutnya |
+| `[vertikal]` / `[vertical]` (alias: `[tb]`) | Default — node ditumpuk atas→bawah |
+
+Catatan:
+
+- Direktif bersifat case-insensitive dan boleh diberi teks tambahan di belakangnya (mis. `[horizontal] flowchart LR`).
+- Hanya dikenali sebelum node pertama; jika ditulis setelah ada node, baris tersebut dilaporkan sebagai sintaks tidak dikenal.
 
 ### Daftar Bentuk & Alias
 

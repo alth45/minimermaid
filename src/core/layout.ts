@@ -1,8 +1,9 @@
-import type { DiagramGeometry, EdgeSpec, NodeSpec, PositionedNode, ShapeKind } from './types';
+import type { DiagramGeometry, Direction, EdgeSpec, NodeSpec, PositionedNode, ShapeKind } from './types';
 import { LAYOUT } from './config';
 
 /* =========================================================
-   LAYOUT — mengukur & menempatkan node secara vertikal.
+   LAYOUT — mengukur & menempatkan node, secara vertikal
+   (atas→bawah) atau horizontal (kiri→kanan).
    Setiap bentuk punya aturan minimum ukuran sendiri supaya
    teks tidak terpotong dan bentuk tetap proporsional.
    ========================================================= */
@@ -57,15 +58,34 @@ function measureNode(spec: PositionedNode): MeasuredNode {
 }
 
 /**
- * Tata seluruh node vertikal, rata tengah pada kolom selebar node terluas.
- * @returns Geometri lengkap (posisi, ukuran, dimensi total).
+ * Tata seluruh node sesuai arah:
+ * - `vertical`  : ditumpuk atas→bawah, rata tengah pada kolom selebar node terluas.
+ * - `horizontal`: dibariskan kiri→kanan, rata tengah pada baris setinggi node tertinggi.
+ * @returns Geometri lengkap (posisi, ukuran, arah, dimensi total).
  */
-export function layout(nodes: readonly NodeSpec[], edges: readonly EdgeSpec[]): DiagramGeometry {
-  if (nodes.length === 0) return { nodes: [], edges: [], width: 1, height: 1 };
+export function layout(
+  nodes: readonly NodeSpec[],
+  edges: readonly EdgeSpec[],
+  direction: Direction = 'vertical',
+): DiagramGeometry {
+  if (nodes.length === 0) {
+    return { nodes: [], edges: [], width: 1, height: 1, direction };
+  }
 
   const measured = nodes.map((n) =>
     measureNode({ ...n, x: 0, y: 0, w: 0, h: 0, lines: [] }),
   );
+
+  if (direction === 'horizontal') {
+    const maxH = Math.max(...measured.map((n) => n.h));
+    let x = 0;
+    const placed: PositionedNode[] = measured.map((n) => {
+      const node: PositionedNode = { ...n, x, y: (maxH - n.h) / 2 };
+      x += n.w + LAYOUT.gap;
+      return node;
+    });
+    return { nodes: placed, edges, width: x - LAYOUT.gap, height: maxH, direction };
+  }
 
   const maxW = Math.max(...measured.map((n) => n.w));
   let y = 0;
@@ -75,5 +95,5 @@ export function layout(nodes: readonly NodeSpec[], edges: readonly EdgeSpec[]): 
     return node;
   });
 
-  return { nodes: placed, edges, width: maxW, height: y - LAYOUT.gap };
+  return { nodes: placed, edges, width: maxW, height: y - LAYOUT.gap, direction };
 }
