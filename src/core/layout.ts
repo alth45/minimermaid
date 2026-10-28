@@ -1,161 +1,53 @@
-import type { DiagramGeometry, Direction, EdgeSpec, NodeSpec, PositionedNode, ShapeKind, TextMeasurer } from './types';
+import type { DiagramGeometry, Direction, EdgeSpec, NodeSpec, PositionedNode, TextMeasurer, GroupBox } from './types';
 import { LAYOUT } from './config';
 
-/* =========================================================
-   LAYOUT — mengukur & menempatkan node, secara vertikal
-   (atas→bawah) atau horizontal (kiri→kanan).
-   Setiap bentuk punya aturan minimum ukuran sendiri supaya
-   teks tidak terpotong dan bentuk tetap proporsional.
-   ========================================================= */
-
-/** Node yang sudah diukur tapi belum ditempatkan (tanpa x/y). */
 type MeasuredNode = Omit<PositionedNode, 'x' | 'y'>;
 
-/**
- * Pengukur bawaan (Issue #6): heuristik lama `panjang × charWidth`.
- * Tidak mengenal metrik font sebenarnya, sehingga karakter lebar
- * (CJK/emoji) bisa tumpah dari node — dipakai hanya bila UI tidak
- * menyuntik measurer lain.
- */
 export const heuristicMeasurer: TextMeasurer = {
   measure(text: string): number {
     return text.length * LAYOUT.charWidth;
   },
 };
 
-/** Hitung jumlah baris & dimensi teks dari label via measurer yang disuntik. */
 function measureText(label: string, measurer: TextMeasurer): { textW: number; textH: number; lines: string[] } {
   const lines = label.split('\n');
   const textW = Math.max(measurer.measure(''), ...lines.map((l) => measurer.measure(l)));
-  return {
-    textW,
-    textH: lines.length * LAYOUT.lineHeight,
-    lines,
-  };
+  return { textW, textH: lines.length * LAYOUT.lineHeight, lines };
 }
 
-/** Ukuran dasar yang dipakai bentuk-bentuk sederhana. */
-function baseSize(textW: number, textH: number): { w: number; h: number } {
-  return {
+function sizeForShape(shape: NodeSpec['shape'], textW: number, textH: number): { w: number; h: number } {
+  const base = {
     w: Math.max(LAYOUT.minW, textW + LAYOUT.padX),
     h: Math.max(LAYOUT.minH, textH + LAYOUT.padY),
   };
-}
-
-/** Aturan minimum ukuran per bentuk (override atas ukuran dasar). */
-function sizeForShape(shape: ShapeKind, textW: number, textH: number): { w: number; h: number } {
-  const base = baseSize(textW, textH);
   switch (shape) {
-    case 'triangle':
-      return { w: Math.max(130, textW + 70), h: Math.max(94, textH + 56) };
-    case 'diamond':
-      return { w: Math.max(150, textW * 1.7 + LAYOUT.padX), h: Math.max(96, textH + 58) };
+    case 'triangle':      return { w: Math.max(130, textW + 70), h: Math.max(94, textH + 56) };
+    case 'diamond':       return { w: Math.max(150, textW * 1.7 + LAYOUT.padX), h: Math.max(96, textH + 58) };
     case 'circle':
-    case 'ellipse':
-      return { w: Math.max(124, textW + 56), h: Math.max(84, textH + 46) };
-    case 'hexagon':
-      return { w: Math.max(140, textW + 68), h: base.h };
-    case 'cylinder':
-      return { w: base.w, h: Math.max(74, textH + 44) };
-    default:
-      return base;
+    case 'ellipse':       return { w: Math.max(124, textW + 56), h: Math.max(84, textH + 46) };
+    case 'hexagon':       return { w: Math.max(140, textW + 68), h: base.h };
+    case 'cylinder':      return { w: base.w, h: Math.max(74, textH + 44) };
+    default:              return base;
   }
 }
 
-/** Ukur satu node: hasilkan dimensi & pecahan baris label. */
-function measureNode(spec: PositionedNode, measurer: TextMeasurer): MeasuredNode {
+function measureNode(spec: NodeSpec, measurer: TextMeasurer): MeasuredNode {
   const { textW, textH, lines } = measureText(spec.label, measurer);
-  const { w, h } = sizeForShape(spec.shape, textW, textH);
-  return { shape: spec.shape, label: spec.label, link: spec.link, branch: spec.branch, w, h, lines };
+  const iconW = spec.icon ? 18 : 0;
+  const gap = spec.icon && textW > 0 ? 8 : 0;
+  const totalW = textW + iconW + gap;
+  const { w, h } = sizeForShape(spec.shape, totalW, textH);
+  return { ...spec, w, h, lines };
 }
 
-/**
- * Kumpulkan satu "blok" mulai dari indeks `start`:
- * - node biasa tanpa link   -> blok tunggal (satu node)
- * - rantai node berlink     -> blok linear
- * - node `[cabang]`         -> blok cabang: node sumber + dua node tujuan
- *   yang ditata berdampingan (bersebelihan melintang arah layout).
- */
-function readBlock(
-  nodes: readonly NodeSpec[],
-  start: number,
-): { kind: 'linear' | 'branch'; indices: readonly number[]; branch?: { source: number; yes: number; no: number } } {
-  const first = nodes[start];
-  if (!first) return { kind: 'linear', indices: [] };
-  if (first.branch) {
-    const yes = start + 1;
-    const no = start + 2;
-    if (yes < nodes.length && no < nodes.length) {
-      const indices = [start, yes, no];
-      // Sisi "tidak" boleh melanjutkan rantai `->node` biasa setelah pasangan.
-      let i = no;
-      while (nodes[i]?.link && i + 1 < nodes.length && !nodes[i + 1]?.branch) {
-        i += 1;
-        indices.push(i);
-      }
-      return { kind: 'branch', indices, branch: { source: start, yes, no } };
-    }
-    // Cabang menggantung di akhir sumber → diperlakukan sebagai node biasa.
-    return { kind: 'linear', indices: [start] };
-  }
-  const indices = [start];
-  let i = start;
-  // Rantai berhenti sebelum node `[cabang]` — cabang selalu blok tersendiri.
-  while (nodes[i]?.link && i + 1 < nodes.length && !nodes[i + 1]?.branch) {
-    i += 1;
-    indices.push(i);
-  }
-  return { kind: 'linear', indices };
+interface Cell {
+  w: number;
+  h: number;
+  placed: { index: number; x: number; y: number }[];
 }
 
-/**
- * Ukuran total blok cabang pada GRID KOLOM yang ketat:
- * - vertical  : satu kolom lebar (sumber di baris sendiri, ya|tidak sebaris),
- *               tinggi = h(sumber) + gap + max(h(ya), h(tidak)).
- * - horizontal: dua lajur sejajar (lajur-1 = sumber, lajur-2 = ya+tidak),
- *               lebar = w(sumber) + gap + max(w(ya), w(tidak)).
- * Sumber TIDAK lagi ditumpuk di slot yang sama dengan pasangannya, sehingga
- * panah cabang selalu vertikal/rapi mengikuti grid, tidak menyamping kacau.
- */
-function branchExtent(
-  _branch: { source: number; yes: number; no: number },
-  members: readonly MeasuredNode[],
-  direction: Direction,
-): { main: number; cross: number } {
-  const src = members[0];
-  const yes = members[1];
-  const no = members[2];
-  if (!src || !yes || !no) return { main: 0, cross: 0 };
-  let main: number;
-  let cross: number;
-  if (direction === 'horizontal') {
-    main = src.w + LAYOUT.gap + Math.max(yes.w, no.w);
-    cross = Math.max(src.h, yes.h + LAYOUT.gap + no.h);
-  } else {
-    main = src.h + LAYOUT.gap + Math.max(yes.h, no.h);
-    cross = Math.max(src.w, yes.w + LAYOUT.gap + no.w);
-  }
-  // Rantai lanjutan setelah sisi "tidak" ikut dihitung dalam ukuran blok.
-  for (let i = 3; i < members.length; i++) {
-    const m = members[i];
-    if (!m) continue;
-    main += (direction === 'horizontal' ? m.w : m.h) + LAYOUT.gap;
-    cross = Math.max(cross, direction === 'horizontal' ? m.h : m.w);
-  }
-  return { main, cross };
-}
+const EMPTY_CELL: Cell = { w: 0, h: 0, placed: [] };
 
-/**
- * Tata seluruh node sesuai arah:
- * - `vertical`  : ditumpuk atas→bawah, rata tengah pada kolom selebar blok terluas.
- * - `horizontal`: dibariskan kiri→kanan, rata tengah pada baris setinggi blok terlentang.
- * Percabangan `[cabang]` ditempatkan sebagai satu unit: node sumber diikuti
- * dua node tujuan yang saling bersebelahan melintang arah layout.
- * @param measurer Pengukur lebar teks (Issue #6). Default: heuristik
- *   `panjang × charWidth`; UI menyuntik measurer berbasis canvas agar
- *   karakter lebar (CJK/emoji) tidak membuat label tumpah dari node.
- * @returns Geometri lengkap (posisi, ukuran, arah, dimensi total).
- */
 export function layout(
   nodes: readonly NodeSpec[],
   edges: readonly EdgeSpec[],
@@ -166,129 +58,205 @@ export function layout(
     return { nodes: [], edges: [], width: 1, height: 1, direction };
   }
 
-  const measured = nodes.map((n) =>
-    measureNode({ ...n, x: 0, y: 0, w: 0, h: 0, lines: [] }, measurer),
-  );
+  const measured = nodes.map((n) => measureNode(n, measurer));
 
-  // Setiap "unit" sepanjang arah utama punya stride-nya sendiri:
-  // - node tunggal          -> ukurannya sendiri
-  // - dua node berlink      -> ukuran keduanya + gap
-  // - blok `[cabang]`       -> sumber + pasangan ya/tidak (+ rantai lanjutan)
-  // Gap antar unit seragam `LAYOUT.gap`, sehingga deretan node tanpa cabang
-  // menghasilkan tata letak yang identik dengan perilaku sebelum cabang ada.
-  interface Unit {
-    readonly kind: 'linear' | 'branch';
-    readonly indices: readonly number[];
-    readonly branch?: { source: number; yes: number; no: number };
-    readonly mainSize: number;
-    readonly crossSize: number;
-  }
-  const units: Unit[] = [];
-  let idx = 0;
-  while (idx < nodes.length) {
-    const blk = readBlock(nodes, idx);
-    if (blk.indices.length === 0) break;
-    const members = blk.indices.map((i) => measured[i] as MeasuredNode);
-    if (blk.kind === 'branch' && blk.branch) {
-      const ext = branchExtent(blk.branch, members, direction);
-      units.push({ kind: 'branch', indices: blk.indices, branch: blk.branch, mainSize: ext.main, crossSize: ext.cross });
-      idx += blk.indices.length;
-      continue;
+  const childrenOf = new Map<number, number[]>();
+  const roots: number[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const p = nodes[i]!.parent;
+    if (p === undefined) roots.push(i);
+    else {
+      if (!childrenOf.has(p)) childrenOf.set(p, []);
+      childrenOf.get(p)!.push(i);
     }
-    // Blok linear menjadi SATU unit utuh — persis seperti layout pra-cabang:
-    // setiap node rata tengah pada kanvas penuh, jarak antar node = gap.
-    const mainSize =
-      members.reduce((sum, m) => sum + (direction === 'horizontal' ? m.w : m.h), 0) +
-      LAYOUT.gap * Math.max(0, members.length - 1);
-    const crossSize = Math.max(
-      ...members.map((m) => (direction === 'horizontal' ? m.h : m.w)),
-    );
-    units.push({ kind: 'linear', indices: blk.indices, mainSize, crossSize });
-    idx += blk.indices.length;
   }
 
-  const maxCross = Math.max(...units.map((u) => u.crossSize));
-  const totalMain =
-    units.reduce((sum, u) => sum + u.mainSize, 0) + LAYOUT.gap * Math.max(0, units.length - 1);
+  const horizontal = direction === 'horizontal';
 
-  const placed: PositionedNode[] = new Array(nodes.length);
+  function combineChain(parts: Cell[]): Cell {
+    if (parts.length === 0) return EMPTY_CELL;
+    if (parts.length === 1) return parts[0]!;
+    let cursor = 0;
+    let cross = 0;
+    const placed: Cell['placed'] = [];
 
-  // Helper penempatan — argumen selalu (x, y) dalam koordinat kanvas.
-  const placeXY = (nodeIndex: number, x: number, y: number): void => {
-    const m = measured[nodeIndex] as MeasuredNode;
-    placed[nodeIndex] = { ...m, x, y };
-  };
-
-  let cursor = 0;
-  for (const unit of units) {
-    const block = unit; // nama lokal agar kode penempatan di bawah tetap ringkas
-    const crossBase = (maxCross - block.crossSize) / 2;
-
-    if (block.kind === 'branch' && block.branch) {
-      // GRID KETAT untuk blok [cabang]:
-      // - vertical  : baris-1 = sumber (rata tengah kolom), baris-2 = ya|tidak sebaris.
-      // - horizontal: lajur-1 = sumber (rata tinggi lajur), lajur-2 = ya di atas, tidak di bawah.
-      const { source, yes, no } = block.branch;
-      const srcM = measured[source] as MeasuredNode;
-      const yesM = measured[yes] as MeasuredNode;
-      const noM = measured[no] as MeasuredNode;
-      if (direction === 'horizontal') {
-        // Lajur-1: sumber, rata tengah terhadap tinggi blok.
-        placeXY(source, cursor, crossBase + (block.crossSize - srcM.h) / 2);
-        // Lajur-2: ya di atas lalu tidak di bawah, bertumpuk vertikal;
-        // keduanya rata kiri lajur dan group-nya terpusat secara vertikal.
-        const colX = cursor + srcM.w + LAYOUT.gap;
-        const colW = Math.max(yesM.w, noM.w);
-        const pairH = yesM.h + LAYOUT.gap + noM.h;
-        const pairTop = crossBase + (block.crossSize - pairH) / 2;
-        placeXY(yes, colX, pairTop);
-        placeXY(no, colX + (colW - noM.w) / 2, pairTop + yesM.h + LAYOUT.gap);
-        // Rantai lanjutan setelah sisi "tidak" — kembali ke lajur berikutnya.
-        let innerTail = colX + colW + LAYOUT.gap;
-        for (let k = 3; k < block.indices.length; k++) {
-          const i = block.indices[k];
-          const m = measured[i as number] as MeasuredNode;
-          placeXY(i as number, innerTail, crossBase + (block.crossSize - m.h) / 2);
-          innerTail += m.w + LAYOUT.gap;
-        }
+    for (const p of parts) {
+      if (horizontal) {
+        placed.push(...p.placed.map((n) => ({ ...n, x: n.x + cursor })));
+        cursor += p.w + LAYOUT.gap;
+        cross = Math.max(cross, p.h);
       } else {
-        // Baris-1: sumber, rata tengah terhadap lebar blok.
-        placeXY(source, crossBase + (block.crossSize - srcM.w) / 2, cursor);
-        // Baris-2: ya dan tidak berdampingan horizontal, sebagai satu group terpusat.
-        const rowY = cursor + srcM.h + LAYOUT.gap;
-        const rowH = Math.max(yesM.h, noM.h);
-        const pairW = yesM.w + LAYOUT.gap + noM.w;
-        const px = crossBase + (block.crossSize - pairW) / 2;
-        placeXY(yes, px, rowY + (rowH - yesM.h) / 2);
-        placeXY(no, px + yesM.w + LAYOUT.gap, rowY + (rowH - noM.h) / 2);
-        // Rantai lanjutan setelah sisi "tidak".
-        let innerTail = rowY + rowH + LAYOUT.gap;
-        for (let k = 3; k < block.indices.length; k++) {
-          const i = block.indices[k];
-          const m = measured[i as number] as MeasuredNode;
-          placeXY(i as number, crossBase + (block.crossSize - m.w) / 2, innerTail);
-          innerTail += m.h + LAYOUT.gap;
-        }
-      }
-    } else {
-      let inner = cursor;
-      for (const i of block.indices) {
-        const m = measured[i] as MeasuredNode;
-        const mainSize = direction === 'horizontal' ? m.w : m.h;
-        const crossSize = direction === 'horizontal' ? m.h : m.w;
-        // Semua node (dengan atau tanpa cabang) rata tengah pada kanvas penuh
-        // — persis perilaku layout pra-cabang.
-        const crossPos = (maxCross - crossSize) / 2;
-        if (direction === 'horizontal') placeXY(i, inner, crossPos);
-        else placeXY(i, crossPos, inner);
-        inner += mainSize + LAYOUT.gap;
+        placed.push(...p.placed.map((n) => ({ ...n, y: n.y + cursor })));
+        cursor += p.h + LAYOUT.gap;
+        cross = Math.max(cross, p.w);
       }
     }
-    cursor += block.mainSize + LAYOUT.gap;
+
+    const w = horizontal ? cursor - LAYOUT.gap : cross;
+    const h = horizontal ? cross : cursor - LAYOUT.gap;
+    const result: Cell['placed'] = [];
+    let cursor2 = 0;
+    
+    for (const p of parts) {
+      const offset = horizontal ? (cross - p.h) / 2 : (cross - p.w) / 2;
+      if (horizontal) {
+        result.push(...p.placed.map((n) => ({ ...n, x: n.x + cursor2, y: n.y + offset })));
+        cursor2 += p.w + LAYOUT.gap;
+      } else {
+        result.push(...p.placed.map((n) => ({ ...n, x: n.x + offset, y: n.y + cursor2 })));
+        cursor2 += p.h + LAYOUT.gap;
+      }
+    }
+    return { w, h, placed: result };
   }
 
+  function nodeCell(index: number): Cell {
+    const m = measured[index]!;
+    return { w: m.w, h: m.h, placed: [{ index, x: 0, y: 0 }] };
+  }
 
-  const width = direction === 'horizontal' ? totalMain : maxCross;
-  const height = direction === 'horizontal' ? maxCross : totalMain;
-  return { nodes: placed, edges, width, height, direction };
+  function subtree(index: number): Cell {
+    const n = nodes[index]!;
+    const kids = childrenOf.get(index) ?? [];
+
+    if (n.branch) {
+      const yesIdx = kids.find((k) => nodes[k]!.side === 'yes');
+      const noIdx = kids.find((k) => nodes[k]!.side === 'no');
+      const yesCell = yesIdx !== undefined ? subtree(yesIdx) : EMPTY_CELL;
+      const noCell = noIdx !== undefined ? subtree(noIdx) : EMPTY_CELL;
+      return branchCell(index, yesCell, noCell);
+    }
+
+    const chainChild = kids.find((k) => nodes[k]!.side === undefined);
+    const self = nodeCell(index);
+    if (chainChild === undefined) return self;
+    return combineChain([self, subtree(chainChild)]);
+  }
+
+  function branchCell(sourceIdx: number, yes: Cell, no: Cell): Cell {
+    const src = measured[sourceIdx]!;
+    const placed: Cell['placed'] = [];
+    const hasYes = yes.w > 0 || yes.h > 0;
+    const hasNo = no.w > 0 || no.h > 0;
+
+    if (horizontal) {
+      let pairH = 0;
+      if (hasYes && hasNo) pairH = yes.h + LAYOUT.gap + no.h;
+      else if (hasYes) pairH = yes.h;
+      else if (hasNo) pairH = no.h;
+      
+      const totalH = Math.max(src.h, pairH);
+      const srcY = (totalH - src.h) / 2;
+      const pairY = (totalH - pairH) / 2;
+      
+      let colW = 0;
+      if (hasYes && hasNo) colW = Math.max(yes.w, no.w);
+      else if (hasYes) colW = yes.w;
+      else if (hasNo) colW = no.w;
+      
+      const nextX = src.w + LAYOUT.gap;
+      
+      placed.push({ index: sourceIdx, x: 0, y: srcY });
+      if (hasYes) placed.push(...yes.placed.map((n) => ({ ...n, x: n.x + nextX, y: n.y + pairY })));
+      if (hasNo) {
+        const noY = hasYes ? pairY + yes.h + LAYOUT.gap : pairY;
+        placed.push(...no.placed.map((n) => ({ ...n, x: n.x + nextX, y: n.y + noY })));
+      }
+      
+      const totalW = src.w + (hasYes || hasNo ? LAYOUT.gap + colW : 0);
+      return { w: totalW, h: totalH, placed };
+    }
+
+    let pairW = 0;
+    if (hasYes && hasNo) pairW = yes.w + LAYOUT.gap + no.w;
+    else if (hasYes) pairW = yes.w;
+    else if (hasNo) pairW = no.w;
+
+    const totalW = Math.max(src.w, pairW);
+    const srcX = (totalW - src.w) / 2;
+    const pairX = (totalW - pairW) / 2;
+    
+    let rowH = 0;
+    if (hasYes && hasNo) rowH = Math.max(yes.h, no.h);
+    else if (hasYes) rowH = yes.h;
+    else if (hasNo) rowH = no.h;
+
+    const nextY = src.h + LAYOUT.gap;
+    
+    placed.push({ index: sourceIdx, x: srcX, y: 0 });
+    if (hasYes) {
+      placed.push(...yes.placed.map((n) => ({ ...n, x: n.x + pairX, y: n.y + nextY + (rowH - yes.h) / 2 })));
+    }
+    if (hasNo) {
+      const noX = hasYes ? pairX + yes.w + LAYOUT.gap : pairX;
+      placed.push(...no.placed.map((n) => ({ ...n, x: n.x + noX, y: n.y + nextY + (rowH - no.h) / 2 })));
+    }
+
+    const totalH = src.h + (hasYes || hasNo ? LAYOUT.gap + rowH : 0);
+    return { w: totalW, h: totalH, placed };
+  }
+
+  const rootCells = roots.map((r) => subtree(r));
+  const combined = combineChain(rootCells);
+
+  const positioned: PositionedNode[] = new Array(nodes.length);
+  for (const p of combined.placed) {
+    const m = measured[p.index]!;
+    positioned[p.index] = { ...m, x: p.x, y: p.y };
+  }
+
+  const groupBounds = new Map<string, { minX: number, minY: number, maxX: number, maxY: number }>();
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]!;
+    const p = positioned[i]!;
+    if (!n.group) continue;
+    
+    const g = groupBounds.get(n.group) || { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    g.minX = Math.min(g.minX, p.x);
+    g.minY = Math.min(g.minY, p.y);
+    g.maxX = Math.max(g.maxX, p.x + p.w);
+    g.maxY = Math.max(g.maxY, p.y + p.h);
+    groupBounds.set(n.group, g);
+  }
+
+  const groups: GroupBox[] = [];
+  const PAD = 24;
+  const LABEL_H = 24;
+  for (const [name, g] of groupBounds.entries()) {
+    groups.push({
+      name,
+      x: g.minX - PAD,
+      y: g.minY - PAD - LABEL_H,
+      w: g.maxX - g.minX + PAD * 2,
+      h: g.maxY - g.minY + PAD * 2 + LABEL_H
+    });
+  }
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of positioned) {
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x + p.w);
+    maxY = Math.max(maxY, p.y + p.h);
+  }
+  for (const g of groups) {
+    minX = Math.min(minX, g.x);
+    minY = Math.min(minY, g.y);
+    maxX = Math.max(maxX, g.x + g.w);
+    maxY = Math.max(maxY, g.y + g.h);
+  }
+  
+  if (minX === Infinity) { minX = 0; minY = 0; maxX = 1; maxY = 1; }
+
+  const finalPositioned = positioned.map(p => ({ ...p, x: p.x - minX, y: p.y - minY }));
+  const finalGroups = groups.map(g => ({ ...g, x: g.x - minX, y: g.y - minY }));
+
+  return {
+    nodes: finalPositioned,
+    edges,
+    width: Math.max(maxX - minX, 1),
+    height: Math.max(maxY - minY, 1),
+    direction,
+    groups: finalGroups,
+  };
 }

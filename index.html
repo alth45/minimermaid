@@ -7,10 +7,33 @@
 </head>
 <body>
 
+<!-- Cari bagian header ini -->
 <header>
   <h1>Mini<span>Mermaid</span></h1>
   <div class="spacer"></div>
-  <button id="download">⬇ Download SVG</button>
+  
+  <select id="edge-style">
+    <option value="smooth">Smooth (Lengkung)</option>
+    <option value="step">Step (Siku)</option>
+    <option value="straight">Straight (Lurus)</option>
+  </select>
+
+  <button id="doc-btn">
+    <i data-lucide="book-open"></i> Dokumentasi
+  </button>
+  
+  <button id="toggle-editor">
+    <i data-lucide="eye-off"></i> <span id="toggle-text">Sembunyikan Kode</span>
+  </button>
+  
+  <!-- Tambahkan tombol PNG ini -->
+  <button id="download-png">
+    <i data-lucide="image"></i> PNG
+  </button>
+  
+  <button id="download">
+    <i data-lucide="download"></i> SVG
+  </button>
 </header>
 
 <div class="app">
@@ -32,6 +55,93 @@
     <svg id="canvas" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
     <div id="errors"></div>
   </section>
+</div>
+
+<!-- ================= MODAL DOKUMENTASI ================= -->
+<div id="doc-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>📖 Panduan Sintaks MiniMermaid</h2>
+      <button id="close-doc" class="close-btn">&times;</button>
+    </div>
+    
+    <div class="modal-body">
+      
+      <!-- 1. Dasar Node -->
+      <div class="doc-item">
+        <h3>1. Node Dasar</h3>
+        <p>Satu node ditulis per baris. Gunakan <code>-&gt;node</code> di akhir untuk menyambung ke node berikutnya.</p>
+        <pre><code>->[round]->text["Mulai"]->node
+->[square]->text["Proses Data"]->node
+->[triangle]->text["Selesai"]</code></pre>
+        <button class="try-btn" data-code="->[round]->text[&quot;Mulai&quot;]->node&#10;->[square]->text[&quot;Proses Data&quot;]->node&#10;->[triangle]->text[&quot;Selesai&quot;]">Coba Kode Ini</button>
+      </div>
+
+      <!-- 2. Bentuk & Alias -->
+      <div class="doc-item">
+        <h3>2. Bentuk Node & Alias</h3>
+        <p>Mendukung bahasa Indonesia dan Inggris.</p>
+        <ul>
+          <li><code>square</code> / <code>kotak</code></li>
+          <li><code>round</code> / <code>kapsul</code></li>
+          <li><code>diamond</code> / <code>belahketupat</code></li>
+          <li><code>cylinder</code> / <code>database</code> / <code>db</code></li>
+          <li><code>document</code> / <code>dokumen</code></li>
+          <li><code>hexagon</code> / <code>segi enam</code></li>
+          <li><code>parallelogram</code> / <code>jajargenjang</code></li>
+          <li><code>circle</code>, <code>ellipse</code>, <code>triangle</code></li>
+        </ul>
+      </div>
+
+      <!-- 3. Label Multi-baris -->
+      <div class="doc-item">
+        <h3>3. Label Multi-baris</h3>
+        <p>Gunakan <code>\n</code> untuk membuat baris baru di dalam label.</p>
+        <pre><code>->[diamond]->text["Kondisi\nTerpenuhi?"]</code></pre>
+        <button class="try-btn" data-code="->[diamond]->text[&quot;Kondisi\nTerpenuhi?&quot;]">Coba Kode Ini</button>
+      </div>
+
+      <!-- 4. Arah Horizontal -->
+      <div class="doc-item">
+        <h3>4. Arah Horizontal</h3>
+        <p>Tambahkan <code>[horizontal]</code> di baris paling atas.</p>
+        <pre><code>[horizontal]
+->[round]->text["Mulai"]->node
+->[diamond]->text["Cek"]->node
+->[square]->text["Selesai"]</code></pre>
+        <button class="try-btn" data-code="[horizontal]&#10;->[round]->text[&quot;Mulai&quot;]->node&#10;->[diamond]->text[&quot;Cek&quot;]->node&#10;->[square]->text[&quot;Selesai&quot;]">Coba Kode Ini</button>
+      </div>
+
+      <!-- 5. Percabangan Datar (Flat) -->
+      <div class="doc-item">
+        <h3>5. Percabangan Datar</h3>
+        <p>Gunakan <code>[cabang]</code> diikuti dengan sisi <code>->ya</code> dan <code>->tidak</code>.</p>
+        <pre><code>[cabang]->[diamond]->text["Lulus?"]
+->ya["Ya"]
+->[square]->text["Sertifikat"]
+->tidak["Tidak"]
+->[square]->text["Ulang"]</code></pre>
+        <button class="try-btn" data-code="[cabang]->[diamond]->text[&quot;Lulus?&quot;]&#10;->ya[&quot;Ya&quot;]&#10;->[square]->text[&quot;Sertifikat&quot;]&#10;->tidak[&quot;Tidak&quot;]&#10;->[square]->text[&quot;Ulang&quot;]">Coba Kode Ini</button>
+      </div>
+
+      <!-- 6. Percabangan Bertingkat (Nested) -->
+      <div class="doc-item">
+        <h3>6. Percabangan Bertingkat (Bagan)</h3>
+        <p>Gunakan <b>Indentasi (Spasi/Tab)</b> di bawah <code>->ya</code> atau <code>->tidak</code> untuk membuat sub-cabang.</p>
+        <pre><code>[cabang]->[diamond]->text["Punya Akun?"]
+  ->ya["Ya"]
+    [cabang]->[diamond]->text["Verifikasi?"]
+      ->ya["Ya"]
+        ->[round]->text["Dashboard"]
+      ->tidak["Belum"]
+        ->[square]->text["Kirim Email"]
+  ->tidak["Tidak"]
+    ->[square]->text["Daftar"]</code></pre>
+        <button class="try-btn" data-code="[cabang]->[diamond]->text[&quot;Punya Akun?&quot;]&#10;  ->ya[&quot;Ya&quot;]&#10;    [cabang]->[diamond]->text[&quot;Verifikasi?&quot;]&#10;      ->ya[&quot;Ya&quot;]&#10;        ->[round]->text[&quot;Dashboard&quot;]&#10;      ->tidak[&quot;Belum&quot;]&#10;        ->[square]->text[&quot;Kirim Email&quot;]&#10;  ->tidak[&quot;Tidak&quot;]&#10;    ->[square]->text[&quot;Daftar&quot;]">Coba Kode Ini</button>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <script type="module" src="/src/main.ts"></script>

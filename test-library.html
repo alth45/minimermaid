@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uji Coba MiniMermaid Library</title>
+  <style>
+    body {
+      background-color: #161b22;
+      color: #e6edf3;
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    h1 {
+      color: #58a6ff;
+      border-bottom: 1px solid #30363d;
+      padding-bottom: 10px;
+    }
+    
+    /* Kotak untuk diagram */
+    .diagram-box {
+      width: 100%;
+      height: 400px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      /* Latar belakang titik-titik seperti canvas */
+      background-image: radial-gradient(circle at 1px 1px, #21262d 1px, transparent 0);
+      background-size: 22px 22px;
+    }
+
+    /* Kotak untuk menampilkan error sintaks */
+    .errors {
+      color: #ff9c94;
+      font-family: monospace;
+      font-size: 14px;
+      background: rgba(248,81,73,.12);
+      border: 1px solid rgba(248,81,73,.45);
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
+    pre {
+      background: #21262d;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      color: #79c0ff;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Uji Coba Library MiniMermaid 🚀</h1>
+  <p>Ini adalah simulasi jika Anda menginstal MiniMermaid di proyek lain (HTML biasa).</p>
+
+  <!-- Wadah Diagram 1 (Render ke DOM) -->
+  <h3>1. Render Otomatis ke DOM (Bagan + Group + Ikon)</h3>
+  <div id="diagram-container" class="diagram-box"></div>
+
+  <!-- Wadah Diagram 2 (Mengambil string SVG) -->
+  <h3>2. Ambil String SVG (Render Manual)</h3>
+  <div id="diagram-manual" class="diagram-box"></div>
+
+  <!-- Wadah Error -->
+  <div id="error-container"></div>
+
+  <!-- PENTING: Muat file hasil build Vite -->
+  <script src="./dist/minimermaid.umd.js"></script>
+
+  <script>
+    // Kode diagram yang akan diuji
+    const kodeDiagram = `
+[horizontal]
+->[round]->icon["log-in"]->text["Mulai"]->node
+
+[group "Core System"]
+  [cabang]->[diamond]->icon["shield-question"]->text["Autentikasi?"]
+    ->ya["Ya"]
+      ->[square]->icon["check-circle"]->text["Akses Diterima"]
+    ->tidak["Tidak"]
+      ->[hexagon]->icon["shield-alert"]->text["Blokir IP"]
+`;
+
+    // Opsi tambahan: menggunakan ikon bawaan library
+    const opsi = {
+      edgeStyle: 'step', // Coba ganti jadi 'smooth' atau 'straight'
+      getIcon: MiniMermaid.getLucideIcon
+    };
+
+    // ==========================================
+    // CARA 1: Render Langsung ke Wadah HTML
+    // ==========================================
+    MiniMermaid.renderTo('#diagram-container', kodeDiagram, opsi);
+
+
+    // ==========================================
+    // CARA 2: Mengambil String SVG Murni (Berguna untuk React/Vue)
+    // ==========================================
+    const hasil = MiniMermaid.render(kodeDiagram, {
+      ...opsi,
+      edgeStyle: 'smooth' // Kita ubah gaya panahnya jadi melengkung
+    });
+
+    // Tampilkan ke layar
+    document.getElementById('diagram-manual').innerHTML = hasil.svg;
+
+    // Tampilkan error (jika ada kesalahan ketik sintaks)
+    if (hasil.errors.length > 0) {
+      document.getElementById('error-container').innerHTML = 
+        `<div class="errors"><strong>Error Sintaks:</strong><br>${hasil.errors.join('<br>')}</div>`;
+    }
+  </script>
+</body>
+</html>

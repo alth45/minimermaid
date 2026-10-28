@@ -1,96 +1,72 @@
 /* =========================================================
    Tipe domain — jantung model diagram.
-   Layer ini bebas DOM & bebas implementasi rendering.
    ========================================================= */
 
-/** Bentuk node yang didukung (nilai kanonik setelah alias diselesaikan). */
 export type ShapeKind =
-  | 'square'
-  | 'round'
-  | 'circle'
-  | 'ellipse'
-  | 'diamond'
-  | 'triangle'
-  | 'hexagon'
-  | 'parallelogram'
-  | 'cylinder'
-  | 'document';
+  | 'square' | 'round' | 'circle' | 'ellipse' | 'diamond'
+  | 'triangle' | 'hexagon' | 'parallelogram' | 'cylinder' | 'document';
 
-/** Spesifikasi node mentah hasil parser (belum punya geometri). */
 export interface NodeSpec {
   readonly shape: ShapeKind;
   readonly label: string;
-  /** true bila baris diakhiri penanda `->node` (sambung ke node berikutnya). */
+  readonly icon?: string; // <-- Properti ikon baru
   readonly link: boolean;
-  /** true bila baris diawali penanda `[cabang]` → node percabangan. */
   readonly branch: boolean;
+  readonly parent?: number;
+  readonly side?: 'yes' | 'no';
+  readonly group?: string;
 }
 
-/** Label sisi pada edge percabangan (opsional, mis. "Ya" / "Tidak"). */
-export interface EdgeLabel {
-  readonly text: string;
-}
-
-/** Sambungan antar node berdasarkan indeks dalam daftar node. */
 export interface EdgeSpec {
   readonly from: number;
   readonly to: number;
-  /** Teks kecil di tengah edge (dipakai cabang, mis. "Ya"/"Tidak"). */
   readonly label?: string;
 }
 
-/** Arah penataan diagram. */
 export type Direction = 'vertical' | 'horizontal';
+export type EdgeStyle = 'smooth' | 'step' | 'straight';
 
-/**
- * Pengukur lebar teks yang bisa disuntik ke pipeline layout (Issue #6).
- * Default-nya heuristik perkiraan (`panjang × LAYOUT.charWidth`); UI dapat
- * menyuntik implementasi berbasis `canvas.measureText()` agar label dengan
- * karakter lebar (CJK/emoji) tidak tumpah dari node. Implementasi harus
- * bebas DOM di sisi core — detail pengukuran (mis. konteks canvas) menjadi
- * tanggung jawab penyedia measurer.
- */
 export interface TextMeasurer {
-  /** Lebar horizontal (px) dari satu baris teks pada font diagram. */
   measure(text: string): number;
 }
 
-/** Hasil parsing: model + daftar error sintaks (bukan exception). */
 export interface ParseResult {
   readonly nodes: NodeSpec[];
   readonly edges: EdgeSpec[];
   readonly errors: string[];
-  /** Arah layout, ditentukan direktif `[horizontal]`/`[vertikal]` di awal kode. */
   readonly direction: Direction;
 }
 
-/** Node yang sudah diukur & ditempatkan oleh layout. */
 export interface PositionedNode extends NodeSpec {
   readonly x: number;
   readonly y: number;
   readonly w: number;
   readonly h: number;
-  /** Label yang sudah dipecah per baris. */
   readonly lines: string[];
 }
 
-/** Geometri diagram lengkap siap dirender (read-only). */
+export interface GroupBox {
+  readonly name: string;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
 export interface DiagramGeometry {
   readonly nodes: readonly PositionedNode[];
   readonly edges: readonly EdgeSpec[];
   readonly width: number;
   readonly height: number;
-  /** Arah penataan node (dipakai renderer untuk menggambar edge). */
   readonly direction: Direction;
+  readonly groups?: readonly GroupBox[];
 }
 
-/** Keluaran renderer SVG: markup + viewBox-nya. */
 export interface RenderedSvg {
   readonly markup: string;
   readonly viewBox: string;
 }
 
-/** Hasil pipeline lengkap: markup SVG + error parser untuk ditampilkan UI. */
 export interface CompileResult extends RenderedSvg {
   readonly errors: string[];
 }
