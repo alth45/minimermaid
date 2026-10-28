@@ -4,10 +4,24 @@ import { shapeSvg } from './shapes';
 import { textSvg } from './text';
 import { ARROW_DEFS, edgeSvg } from './edge';
 import { groupSvg } from './group';
+import { escapeXml } from './svg-utils';
 
 function nodeSvg(n: PositionedNode, color: string, getIcon?: (name: string) => string | undefined): string {
   const iconSvgStr = n.icon && getIcon ? getIcon(n.icon) : undefined;
-  return `<g class="node">${shapeSvg(n, color)}${textSvg(n, iconSvgStr)}</g>`;
+  
+  let inner = `${shapeSvg(n, color)}${textSvg(n, iconSvgStr)}`;
+
+  if (n.tooltip) {
+    inner = `<title>${escapeXml(n.tooltip)}</title>` + inner;
+  }
+
+  if (n.link) {
+    return `<a href="${escapeXml(n.link)}" target="_blank" rel="noopener noreferrer" style="cursor: pointer;">
+              <g class="node">${inner}</g>
+            </a>`;
+  }
+
+  return `<g class="node">${inner}</g>`;
 }
 
 export function renderDiagram(
@@ -37,11 +51,14 @@ export function renderDiagram(
     const isNo = e.label?.toLowerCase().startsWith('t') || e.label?.toLowerCase().startsWith('n');
     const branch = a.branch ? (isYes ? ('yes' as const) : isNo ? ('no' as const) : (seen === 0 ? ('yes' as const) : ('no' as const))) : undefined;
     
-    parts.push(edgeSvg(a, b, horizontal, branch, e.label, edgeStyle));
+    // PERBAIKAN: Kirim e.undirected
+    parts.push(edgeSvg(a, b, horizontal, branch, e.label, edgeStyle, e.undirected));
   }
 
   geometry.nodes.forEach((n, i) => {
-    parts.push(nodeSvg(n, PALETTE[i % PALETTE.length] ?? PALETTE[0] ?? '#58a6ff', getIcon));
+    // Gunakan n.color jika ada, jika tidak gunakan PALETTE bergilir
+    const nodeColor = n.color || PALETTE[i % PALETTE.length] || '#58a6ff';
+    parts.push(nodeSvg(n, nodeColor, getIcon));
   });
 
   const { width, height } = geometry;

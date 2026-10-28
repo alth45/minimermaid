@@ -14,14 +14,38 @@ function anchorPair(
   const acy = a.y + a.h / 2;
   const bcx = b.x + b.w / 2;
   const bcy = b.y + b.h / 2;
+  
+  // Deteksi Back-Edge (Panah balik ke atas/kiri)
+  const isBackEdge = horizontal ? (bcx < acx) : (bcy < acy);
+
+  if (isBackEdge) {
+    if (horizontal) {
+      // Layout horizontal, tujuan di kiri. Keluar dari sisi atas/bawah.
+      const up = bcy < acy;
+      return {
+        x1: acx, y1: up ? a.y : a.y + a.h,
+        x2: bcx, y2: up ? b.y + b.h + 2 : b.y - 2, along: 'cross',
+      };
+    } else {
+      // Layout vertikal, tujuan di atas. Keluar dari sisi kanan.
+      return {
+        x1: a.x + a.w, y1: acy,
+        x2: b.x + b.w + 2, y2: bcy, along: 'cross',
+      };
+    }
+  }
+
+  // Forward Edge (Normal)
   const crosswise = horizontal
     ? Math.abs(bcy - acy) > Math.abs(bcx - acx)
     : Math.abs(bcx - acx) > Math.abs(bcy - acy);
+    
   if (!crosswise) {
     return horizontal
       ? { x1: a.x + a.w, y1: acy, x2: b.x - 2, y2: bcy, along: 'main' }
       : { x1: acx, y1: a.y + a.h, x2: bcx, y2: b.y - 2, along: 'main' };
   }
+  
   if (horizontal) {
     const up = bcy < acy;
     return {
@@ -43,6 +67,7 @@ export function edgeSvg(
   branch?: BranchSide,
   label?: string,
   style: EdgeStyle = 'smooth',
+  undirected = false,
 ): string {
   let d: string;
   let lx = 0;
@@ -51,42 +76,27 @@ export function edgeSvg(
   const midY = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
 
   if (branch) {
+    // ... (Logika percabangan persis seperti sebelumnya) ...
     if (horizontal) {
       const x1 = a.x + a.w;
       const y1 = a.y + a.h / 2;
       const x2 = b.x - 2;
       const y2 = b.y + b.h / 2;
       const bendX = x1 + Math.max(16, (x2 - x1) * 0.5);
-      
-      if (style === 'straight') {
-        d = `M${num(x1)},${num(y1)} L${num(x2)},${num(y2)}`;
-        lx = (x1 + x2) / 2; ly = (y1 + y2) / 2;
-      } else if (style === 'step') {
-        d = `M${num(x1)},${num(y1)} L${num(bendX)},${num(y1)} L${num(bendX)},${num(y2)} L${num(x2)},${num(y2)}`;
-        lx = bendX; ly = (y1 + y2) / 2;
-      } else {
-        d = `M${num(x1)},${num(y1)} C${num(bendX)},${num(y1)} ${num(bendX)},${num(y2)} ${num(x2)},${num(y2)}`;
-        lx = (x1 + bendX + bendX + x2) / 8; 
-        ly = (y1 + 3*y1 + 3*y2 + y2) / 8;
-      }
+      if (style === 'straight') d = `M${num(x1)},${num(y1)} L${num(x2)},${num(y2)}`;
+      else if (style === 'step') d = `M${num(x1)},${num(y1)} L${num(bendX)},${num(y1)} L${num(bendX)},${num(y2)} L${num(x2)},${num(y2)}`;
+      else d = `M${num(x1)},${num(y1)} C${num(bendX)},${num(y1)} ${num(bendX)},${num(y2)} ${num(x2)},${num(y2)}`;
+      lx = (x1 + x2) / 2; ly = (y1 + y2) / 2;
     } else {
       const x1 = a.x + a.w / 2;
       const y1 = a.y + a.h;
       const x2 = b.x + b.w / 2;
       const y2 = b.y - 2;
       const bendY = y1 + Math.max(14, (y2 - y1) * 0.4);
-      
-      if (style === 'straight') {
-        d = `M${num(x1)},${num(y1)} L${num(x2)},${num(y2)}`;
-        lx = (x1 + x2) / 2; ly = (y1 + y2) / 2;
-      } else if (style === 'step') {
-        d = `M${num(x1)},${num(y1)} L${num(x1)},${num(bendY)} L${num(x2)},${num(bendY)} L${num(x2)},${num(y2)}`;
-        lx = (x1 + x2) / 2; ly = bendY;
-      } else {
-        d = `M${num(x1)},${num(y1)} C${num(x1)},${num(bendY)} ${num(x2)},${num(bendY)} ${num(x2)},${num(y2)}`;
-        lx = (x1 + 3*x1 + 3*x2 + x2) / 8;
-        ly = (y1 + 3*bendY + 3*bendY + y2) / 8;
-      }
+      if (style === 'straight') d = `M${num(x1)},${num(y1)} L${num(x2)},${num(y2)}`;
+      else if (style === 'step') d = `M${num(x1)},${num(y1)} L${num(x1)},${num(bendY)} L${num(x2)},${num(bendY)} L${num(x2)},${num(y2)}`;
+      else d = `M${num(x1)},${num(y1)} C${num(x1)},${num(bendY)} ${num(x2)},${num(bendY)} ${num(x2)},${num(y2)}`;
+      lx = (x1 + x2) / 2; ly = bendY;
     }
   } else {
     const { x1, y1, x2, y2 } = anchorPair(a, b, horizontal);
@@ -106,26 +116,24 @@ export function edgeSvg(
       }
     } else {
       if (horizontal) {
-        const c = Math.max(24, (x2 - x1) * 0.45);
+        const c = Math.max(24, Math.abs(x2 - x1) * 0.45);
         d = `M${num(x1)},${num(y1)} C${num(x1 + c)},${num(y1)} ${num(x2 - c)},${num(y2)} ${num(x2)},${num(y2)}`;
       } else {
-        const c = Math.max(24, (y2 - y1) * 0.45);
+        const c = Math.max(24, Math.abs(y2 - y1) * 0.45);
         d = `M${num(x1)},${num(y1)} C${num(x1)},${num(y1 + c)} ${num(x2)},${num(y2 - c)} ${num(x2)},${num(y2)}`;
       }
       lx = midX; ly = midY;
     }
   }
 
-  const path = `<path d="${d}" fill="none" stroke="#7d8590" stroke-width="2"
-                stroke-linecap="round" marker-end="url(#arrow)"/>`;
-  if (!label || !branch) return path;
+  const marker = undirected ? '' : 'marker-end="url(#arrow)"';
+  const path = `<path d="${d}" fill="none" stroke="#7d8590" stroke-width="2" stroke-linecap="round" ${marker}/>`;
+  if (!label) return path;
 
   const w = Math.max(LAYOUT.branchLabelMinW, label.length * LABEL_FONT_SIZE * 0.66 + 10);
   const h = LABEL_FONT_SIZE + 8;
-  const bg = `<rect x="${num(lx - w / 2)}" y="${num(ly - h / 2)}" width="${num(w)}" height="${num(h)}"
-                   rx="6" fill="#0d1117" opacity="0.9"/>`;
-  const text = `<text x="${num(lx)}" y="${num(ly + LABEL_FONT_SIZE * 0.35)}" text-anchor="middle"
-                     font-size="${LABEL_FONT_SIZE}" fill="#c9d1d9">${escapeXml(label)}</text>`;
+  const bg = `<rect x="${num(lx - w / 2)}" y="${num(ly - h / 2)}" width="${num(w)}" height="${num(h)}" rx="6" fill="#0d1117" opacity="0.9"/>`;
+  const text = `<text x="${num(lx)}" y="${num(ly + LABEL_FONT_SIZE * 0.35)}" text-anchor="middle" font-size="${LABEL_FONT_SIZE}" fill="#c9d1d9">${escapeXml(label)}</text>`;
   return `${path}${bg}${text}`;
 }
 
@@ -134,8 +142,16 @@ function escapeXml(s: string): string {
 }
 
 export const ARROW_DEFS = `<defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
-            markerWidth="7" markerHeight="7" orient="auto">
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
       <path d="M0,0 L10,5 L0,10 z" fill="#7d8590"/>
+    </marker>
+  </defs>`;
+
+export const UML_ARROW_DEFS = `<defs>
+    <marker id="uml-arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto">
+      <polygon points="0,0 12,6 0,12" fill="#0d1117" stroke="#7d8590" stroke-width="1.5" />
+    </marker>
+    <marker id="uml-diamond" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto">
+      <polygon points="0,6 6,0 12,6 6,12" fill="#0d1117" stroke="#7d8590" stroke-width="1.5" />
     </marker>
   </defs>`;

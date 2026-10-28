@@ -11,7 +11,9 @@ export const heuristicMeasurer: TextMeasurer = {
 
 function measureText(label: string, measurer: TextMeasurer): { textW: number; textH: number; lines: string[] } {
   const lines = label.split('\n');
-  const textW = Math.max(measurer.measure(''), ...lines.map((l) => measurer.measure(l)));
+  // Bersihkan simbol markdown sebelum diukur
+  const cleanLines = lines.map(l => l.replace(/(\*\*|\*|`)/g, ''));
+  const textW = Math.max(measurer.measure(''), ...cleanLines.map((l) => measurer.measure(l)));
   return { textW, textH: lines.length * LAYOUT.lineHeight, lines };
 }
 
@@ -110,6 +112,41 @@ export function layout(
     return { w, h, placed: result };
   }
 
+  function combineCross(parts: Cell[]): Cell {
+    if (parts.length === 0) return EMPTY_CELL;
+    if (parts.length === 1) return parts[0]!;
+    let cursor = 0;
+    let main = 0;
+    const placed: Cell['placed'] = [];
+    const LANE_GAP = 60;
+
+    for (const p of parts) {
+      if (horizontal) {
+        placed.push(...p.placed.map((n) => ({ ...n, y: n.y + cursor })));
+        cursor += p.h + LANE_GAP;
+        main = Math.max(main, p.w);
+      } else {
+        placed.push(...p.placed.map((n) => ({ ...n, x: n.x + cursor })));
+        cursor += p.w + LANE_GAP;
+        main = Math.max(main, p.h);
+      }
+    }
+
+    const result: Cell['placed'] = [];
+    let cursor2 = 0;
+    for (const p of parts) {
+      const offset = horizontal ? (main - p.w) / 2 : (main - p.h) / 2;
+      if (horizontal) {
+        result.push(...p.placed.map((n) => ({ ...n, x: n.x + offset, y: n.y + cursor2 })));
+        cursor2 += p.h + LANE_GAP;
+      } else {
+        result.push(...p.placed.map((n) => ({ ...n, x: n.x + cursor2, y: n.y + offset })));
+        cursor2 += p.w + LANE_GAP;
+      }
+    }
+    return { w: horizontal ? main : cursor - LANE_GAP, h: horizontal ? cursor - LANE_GAP : main, placed: result };
+  }
+
   function nodeCell(index: number): Cell {
     const m = measured[index]!;
     return { w: m.w, h: m.h, placed: [{ index, x: 0, y: 0 }] };
@@ -127,10 +164,12 @@ export function layout(
       return branchCell(index, yesCell, noCell);
     }
 
-    const chainChild = kids.find((k) => nodes[k]!.side === undefined);
+    // PERBAIKAN: Ambil SEMUA anak rantai, jangan hanya satu
+    const chainKids = kids.filter((k) => nodes[k]!.side === undefined);
     const self = nodeCell(index);
-    if (chainChild === undefined) return self;
-    return combineChain([self, subtree(chainChild)]);
+    if (chainKids.length === 0) return self;
+    
+    return combineChain([self, ...chainKids.map(k => subtree(k))]);
   }
 
   function branchCell(sourceIdx: number, yes: Cell, no: Cell): Cell {
@@ -196,8 +235,29 @@ export function layout(
     return { w: totalW, h: totalH, placed };
   }
 
-  const rootCells = roots.map((r) => subtree(r));
-  const combined = combineChain(rootCells);
+  const laneGroups = new Map<string | undefined, number[]>();
+  for (const r of roots) {
+    const lane = nodes[r]!.lane;
+    if (!laneGroups.has(lane)) laneGroups.set(lane, []);
+    laneGroups.get(lane)!.push(r);
+  }
+
+  const laneOrder = Array.from(laneGroups.keys()).sort((a, b) => {
+    if (a === undefined) return 1;
+    if (b === undefined) return -1;
+    const aIdx = nodes.findIndex(n => n.lane === a);
+    const bIdx = nodes.findIndex(n => n.lane === b);
+    return aIdx - bIdx;
+  });
+
+  const laneCells: Cell[] = [];
+  for (const lane of laneOrder) {
+    const laneRoots = laneGroups.get(lane)!;
+    const cells = laneRoots.map(r => subtree(r));
+    laneCells.push(combineChain(cells));
+  }
+
+  const combined = combineCross(laneCells);
 
   const positioned: PositionedNode[] = new Array(nodes.length);
   for (const p of combined.placed) {
@@ -232,6 +292,31 @@ export function layout(
     });
   }
 
+  const laneBounds = new Map<string, { minX: number, minY: number, maxX: number, maxY: number }>();
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]!;
+    const p = positioned[i]!;
+    if (!n.lane) continue;
+    
+    const l = laneBounds.get(n.lane) || { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    l.minX = Math.min(l.minX, p.x);
+    l.minY = Math.min(l.minY, p.y);
+    l.maxX = Math.max(l.maxX, p.x + p.w);
+    l.maxY = Math.max(l.maxY, p.y + p.h);
+    laneBounds.set(n.lane, l);
+  }
+
+  for (const [name, l] of laneBounds.entries()) {
+    groups.push({
+      name,
+      x: l.minX - PAD,
+      y: l.minY - PAD - LABEL_H,
+      w: l.maxX - l.minX + PAD * 2,
+      h: l.maxY - l.minY + PAD * 2 + LABEL_H,
+      isLane: true
+    });
+  }
+
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const p of positioned) {
     minX = Math.min(minX, p.x);
@@ -248,8 +333,27 @@ export function layout(
   
   if (minX === Infinity) { minX = 0; minY = 0; maxX = 1; maxY = 1; }
 
+  const stretchedGroups = groups.map(g => {
+    if (!g.isLane) return g;
+    
+    let newX = g.x;
+    let newY = g.y;
+    let newW = g.w;
+    let newH = g.h;
+
+    if (direction === 'vertical') {
+      newY = minY - PAD;
+      newH = (maxY - minY) + PAD * 2;
+    } else {
+      newX = minX - PAD;
+      newW = (maxX - minX) + PAD * 2;
+    }
+
+    return { ...g, x: newX, y: newY, w: newW, h: newH };
+  });
+
   const finalPositioned = positioned.map(p => ({ ...p, x: p.x - minX, y: p.y - minY }));
-  const finalGroups = groups.map(g => ({ ...g, x: g.x - minX, y: g.y - minY }));
+  const finalGroups = stretchedGroups.map(g => ({ ...g, x: g.x - minX, y: g.y - minY }));
 
   return {
     nodes: finalPositioned,

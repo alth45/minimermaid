@@ -16,7 +16,16 @@
       <li><code>getIcon</code>: Fungsi pengambil ikon. Disarankan menggunakan bawaan library: <code>MiniMermaid.getLucideIcon</code>.</li>
     </ul>
   </div>
+
+      <h2>3. Fitur Interaktif (HTML Output)</h2>
+    <p>
+      Fungsi <code>MiniMermaid.render()</code> menghasilkan string SVG yang sudah dibungkus dengan tag <code>&lt;a&gt;</code> dan <code>&lt;title&gt;</code> secara otomatis. 
+      Jika Anda menggunakan React/Vue, pastikan menggunakan <code>dangerouslySetInnerHTML</code> atau <code>v-html</code> agar link dan tooltip bisa diklik oleh pengguna.
+    </p>
 </template>
+
+
+
 
 <script setup lang="ts">
 import CodeBlock from '../components/CodeBlock.vue';

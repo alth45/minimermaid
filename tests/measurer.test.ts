@@ -7,7 +7,7 @@ import type { NodeSpec, TextMeasurer } from '../src/core/types';
 const node = (label: string, shape: NodeSpec['shape'] = 'square'): NodeSpec => ({
   shape,
   label,
-  link: false,
+  hasLink: false,
   branch: false,
 });
 

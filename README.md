@@ -1,271 +1,239 @@
+
 # MiniMermaid — Diagram dari Teks
 
-> Tulis kode sederhana di kiri, dapatkan diagram flowchart SVG di kanan.
-> Konversi **TypeScript** dari versi HTML tunggal, dengan arsitektur berlapis,
-> build tooling modern, dan unit test.
+> Library *Diagram-as-Code* (TypeScript) yang ringan dan interaktif. Ubah teks sederhana menjadi diagram SVG yang indah, mendukung Flowchart, Swimlane, Sequence, Class, State, dan Network Graph.
 
 ![Stack](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Build](https://img.shields.io/badge/build-Vite%207-646CFF)
-![Tests](https://img.shields.io/badge/tests-Vitest-46%2F46%20lulus-brightgreen)
+![Docs](https://img.shields.io/badge/docs-Vue%203-42b883)
 
 ---
 
-## Fitur
+## ✨ Fitur Utama
 
-- **10 bentuk node**: `square`, `round`, `circle`, `ellipse`, `diamond`, `triangle`, `hexagon`, `parallelogram`, `cylinder`, `document`
-- **Alias Indonesia & Inggris**: `kotak`, `segitiga`, `db`, `dokumen`, `belahketupat`, …
-- **Arah layout**: tulis `[horizontal]` (atau `[vertikal]`) di baris pertama untuk menata diagram kiri→kanan; default tetap atas→bawah
-- **Percabangan ya/tidak**: awali baris dengan `[cabang]` untuk membuat node keputusan dengan dua sisi berlabel (default "Ya"/"Tidak", boleh diganti)
-- **Sambungan otomatis**: tambahkan `->node` di akhir baris untuk menyambung ke node berikutnya
-- **Label multi-baris** dengan `\n`, **komentar** `#` dan `//`
-- **Error non-fatal**: pesan error ditampilkan di panel sambil tetap merender hasil parsial
-- **Download SVG** satu klik
-- **Tema gelap** ala GitHub + tata letak responsif (mobile: editor di atas, preview di bawah)
-- **Tanpa dependensi runtime** — murni TypeScript, hasil build ringan (HTML + CSS + JS)
+- **6 Tipe Diagram**: Flowchart, Swimlane, Sequence, Class, State, dan Network Graph.
+- **Interactive Nodes**: Tambahkan URL (`->link["..."]`) dan pesan hover (`->tooltip["..."]`) langsung ke dalam node.
+- **Inline Styling**: Beri warna khusus pada node secara instan (misal `[square:red]`).
+- **Rich Text**: Dukung format **Tebal**, *Miring*, dan `Kode` (Markdown-lite) di dalam label.
+- **Grouping & Swimlane**: Kelompokkan node dengan kotak `[group]` atau pisahkan berdasarkan aktor `[lane]`.
+- **Lucide Icons**: Suntikkan ribuan ikon SVG *open-source* (misal `->icon["user"]`).
+- **Edge Fleksibel**: Pilih gaya garis panah: *Smooth* (Melengkung), *Step* (Siku/Tegas), atau *Straight* (Lurus).
+- **Zero DOM Core**: Logika *parsing* dan *layout* murni berjalan tanpa DOM, memudahkan pengujian dan rendering *Server-Side* (SSR).
 
 ---
 
-## Cara Menjalankan
+## 🚀 Instalasi & Penggunaan
 
-Prasyarat: [Node.js](https://nodejs.org/) 20+ dan npm.
-
+### 1. Menggunakan NPM (Modular)
 ```bash
-npm install        # instalasi dependensi
-npm run dev        # server development (Vite) + hot reload
-npm run build      # typecheck (tsc --noEmit) lalu build produksi ke dist/
-npm run preview    # pratinjau hasil build
-npm test           # jalankan seluruh unit test (Vitest)
-npm run test:watch # test mode watch
-npm run typecheck  # hanya typecheck tanpa build
+npm install minimermaid
+```
+Gunakan di dalam kode JavaScript/TypeScript Anda:
+```javascript
+import MiniMermaid from 'minimermaid';
+
+const kode = `
+  [horizontal]
+  ->[round:green]->text["Status: **Aktif**"]->node
+  ->[diamond:orange]->text["Cek Sistem?"]
+`;
+
+// Render ke DOM
+MiniMermaid.renderTo('#container', kode, { edgeStyle: 'smooth' });
+
+// Atau ambil string SVG-nya
+const { svg, errors } = MiniMermaid.render(kode);
 ```
 
-Buka URL yang muncul di terminal (biasanya `http://localhost:5173`), tulis kode
-di editor, dan lihat hasilnya langsung di panel pratinjau.
+### 2. Menggunakan Tag Script (HTML Biasa)
+```html
+<script src="minimermaid.umd.js"></script>
+<script>
+  MiniMermaid.renderTo('#diagram', '->[square]->text["Hello World"]');
+</script>
+```
 
 ---
 
-## Sintaks Diagram
+## 📊 Jenis Diagram & Sintaks
 
-Satu node per baris:
-
-```
-->[bentuk]->text["Label"]->node
-```
-
-| Bagian | Wajib? | Keterangan |
-|---|---|---|
-| `->[bentuk]` | ✔ | Bentuk node, lihat daftar di bawah |
-| `->text["Label"]` | ✔ | Label; kata `text`/`label`/`txt` bisa diganti atau dihilangkan |
-| `->node` | ✘ | Sambungkan otomatis ke node pada baris berikutnya |
-
-### Contoh
-
-```
-# Alur utama
-->[round]->text["Mulai"]->node
-->[diamond]->text["Kondisi\nterpenuhi?"]->node
-->[square]->text["Proses data"]->node
-->[triangle]->text["Selesai"]
-
-# Bentuk lain, tanpa sambungan
-->[cylinder]->text["Database"]
-->[hexagon]->text["Service A"]->node
-->[parallelogram]->text["Service B"]
+### 1. Flowchart (Dasar)
+```text
+[cabang]->[diamond]->text["Login?"]
+  ->ya["Ya"]
+    ->[square]->text["Dashboard"]
+  ->tidak["Tidak"]
+    ->[square]->text["Gagal"]
 ```
 
-Aturan tambahan:
-
-- Baris kosong diabaikan.
-- Komentar diawali `#` atau `//`.
-- Tulis `\n` di dalam label untuk membuat baris baru.
-- Node terakhir dengan `->node` akan menghasilkan peringatan (tidak ada node berikutnya untuk disambung).
-
-### Direktif Arah `[horizontal]`
-
-Tulis direktif pada **baris pertama** (sebelum node mana pun) untuk mengubah arah tata letak:
-
-```
+### 2. Swimlane (Aktor / Departemen)
+```text
 [horizontal]
-->[round]->text["Mulai"]->node
-->[diamond]->text["Kondisi?"]->node
-->[square]->text["Proses data"]
+[lane "Pelanggan"]
+  ->[round]->text["Pesan Makanan"]
+[lane "Restoran"]
+  ->[square]->text["Masak"]
 ```
 
-Diagram di atas tersusun **kiri→kanan**; tanpa direktif, node ditumpuk **atas→bawah** (vertikal).
+### 3. Sequence Diagram (Alur Waktu)
+```text
+[sequence]
+participant Pengguna
+participant Sistem
 
-| Direktif | Efek |
-|---|---|
-| `[horizontal]` (alias: `[horiz]`, `[lr]`) | Node dibariskan kiri→kanan, edge digambar dari sisi kanan ke sisi kiri node berikutnya |
-| `[vertikal]` / `[vertical]` (alias: `[tb]`) | Default — node ditumpuk atas→bawah |
-
-Catatan:
-
-- Direktif bersifat case-insensitive dan boleh diberi teks tambahan di belakangnya (mis. `[horizontal] flowchart LR`).
-- Hanya dikenali sebelum node pertama; jika ditulis setelah ada node, baris tersebut dilaporkan sebagai sintaks tidak dikenal.
-- Percabangan juga didukung pada layout horizontal: kedua sisi ditata dalam lajur sejajar kiri→kanan.
-
-### Percabangan `[cabang]`
-
-Awali baris dengan `[cabang]` (alias: `[branch]`, `[if]`) untuk membuat node keputusan yang menghasilkan **dua edge berlabel** ke dua node berikutnya:
-
-```
-->[round]->text["Mulai"]->node
-[cabang]->[diamond]->text["Lulus?"]
-->ya["Ya"]->node
-->tidak["Tidak"]
-->[square]->text["Selesai"]
+Pengguna -> Sistem: Login Request
+Sistem --> Pengguna: Login Berhasil
 ```
 
-| Bagian | Keterangan |
-|---|---|
-| `[cabang]->[bentuk]->text["Label"]` | Node sumber percabangan (biasanya `diamond`) |
-| `->ya["Label"]` / `->yes[...]` | Sisi "ya"; label pada kurung menjadi teks edge (default: `Ya`). Baris boleh ditutup `->node` agar sisi ini menyambung ke node berikutnya |
-| `->tidak["Label"]` / `->no[...]` | Sisi "tidak"; aturan sama seperti `->ya` |
+### 4. Class Diagram (UML)
+```text
+[class]
+class Animal {
+  +int age
+  +isMammal()
+}
+class Duck {
+  +swim()
+}
+Animal <|-- Duck
+```
 
-Aturan main:
+### 5. State Diagram (Siklus Hidup)
+```text
+[state]
+[*] --> Idle
+Idle --> Processing : Start
+Processing --> [*] : Done
+```
 
-- Kedua sisi boleh ditulis sebagian; sisi yang tidak ditulis memakai label default (`Ya`/`Tidak`) dan bentuk bawaan (`round` untuk ya, `diamond` untuk tidak).
-- Baris `->ya[...]` / `->tidak[...]` boleh ditutup `->node`; jika tidak, node sisi menjadi terminal dan baris selanjutnya melanjutkan alur dari node terakhir.
-- Tersedia pula gaya satu-baris penuh: sumber + kedua sisi ditulis sekaligus dengan segmen `[ya]`/`[tidak]`:
-
-  ```
-  [cabang]->[diamond]->text["Login?"]->node->[ya]->text["OK"]->node->[tidak]->text["Gagal"]
-  ```
-
-  Pada gaya ini label dalam kurung (`"OK"`/`"Gagal"`) dipakai sebagai teks edge, dan token `[ya]`/`[tidak]` sendiri belum terdaftar sebagai bentuk sehingga memunculkan pesan *fallback* non-fatal.
-
-### Daftar Bentuk & Alias
-
-| Bentuk | Alias yang diterima |
-|---|---|
-| `square` | `rect`, `box`, `kotak`, `persegi` |
-| `round` | `rounded`, `stadium`, `pill`, `kapsul` |
-| `circle` | `lingkaran`, `bulat` |
-| `ellipse` | `elips`, `oval` |
-| `diamond` | `decision`, `rhombus`, `belah`, `belahketupat` |
-| `triangle` | `segitiga` |
-| `hexagon` | `segienam` |
-| `parallelogram` | `jajargenjang` |
-| `cylinder` | `database`, `db`, `silinder` |
-| `document` | `doc`, `dokumen` |
-
-Bentuk tak dikenal otomatis di-`fallback` ke `square` disertai pesan error.
+### 6. Network Graph (Jejaring)
+```text
+[network]
+Pusat : "Kantor Pusat"
+Cabang : "Cabang Jakarta"
+Pusat --- Cabang : "Laporan"
+```
 
 ---
 
-## Arsitektur
+## 🎨 Fitur Lanjutan (Flowchart)
 
-Proyek ini memakai pemisahan berlapis agar logika inti bebas DOM dan mudah dites:
-
+**Warna & Rich Text:**
+```text
+->[round:green]->text["Status: **AKTIF**"]->node
+->[diamond:#ff5722]->text["Ping `192.168.1.1`"]
 ```
+
+**Interaktivitas (Link & Tooltip):**
+```text
+->[square]->text["Google"]
+  ->link["https://google.com"]
+  ->tooltip["Buka mesin pencari"]->node
+```
+
+**Grouping:**
+```text
+[group "Payment Gateway"]
+  ->[square]->text["Validasi Kartu"]
+```
+
+*(Baca dokumentasi lengkap di folder `docs/`)*
+
+---
+
+## 🏗️ Arsitektur
+
+Proyek ini memisahkan *core engine* (bebas DOM) dengan *UI layer*, dan menyediakan *entry point* `lib.ts` untuk didistribusikan sebagai *library*.
+
+```text
 ┌─────────────────────────────────────────────────────┐
-│  ui/            lapisan DOM (tipis, imperatif)      │
-│    app.ts ────── orkestrasi event & download        │
-│    editor.ts ─── pembungkus textarea                │
-│    preview.ts ── menampilkan SVG + daftar error     │
-│    canvas-measurer.ts ─ TextMeasurer berbasis       │
-│                  canvas.measureText() (Issue #6)    │
+│  lib.ts         API Publik (MiniMermaid.render)     │
 ├─────────────────────────────────────────────────────┤
 │  core/          DOMAIN MURNI — tanpa DOM, teruji    │
-│    parser.ts ─── teks → model (nodes/edges/errors)  │
-│    layout.ts ─── ukur & tempatkan node (vertikal/   │
-│                  horizontal, blok percabangan)      │
+│    parser.ts ─── teks → model (nodes/edges)         │
+│    layout.ts ─── ukur & tempatkan node              │
+│    sequence.ts, class-diagram.ts, state-diagram.ts, │
+│    network-diagram.ts ── engine layout khusus       │
 │    compile.ts ── pipeline parse → layout → render   │
-│    shapes.ts ─── registry alias bentuk              │
-│    types.ts ──── definisi tipe domain               │
-│    config.ts ─── konstanta (palette, gap, contoh)   │
 ├─────────────────────────────────────────────────────┤
 │  rendering/     generator string SVG — tanpa DOM    │
-│    shapes.ts ─── registry renderer 10 bentuk        │
-│    text.ts ───── label multi-baris (<tspan>)        │
-│    edge.ts ───── kurva bezier + marker panah        │
-│    diagram.ts ── komposisi defs/edges/nodes/viewBox │
-│    svg-utils.ts ─ escape XML & format angka         │
+│    shapes.ts, text.ts, edge.ts, diagram.ts, group.ts│
+├─────────────────────────────────────────────────────┤
+│  ui/            lapisan DOM (aplikasi playground)   │
+│    app.ts, preview.ts, editor.ts                    │
+├─────────────────────────────────────────────────────┤
+│  docs/          Dokumentasi Vue 3 + Vite (SPA)      │
 └─────────────────────────────────────────────────────┘
 ```
 
-Alur data (pipeline murni, tanpa efek samping):
-
-```
+**Alur Data:**
+```text
 source (string)
-   │  parse()         src/core/parser.ts
+   │  parse()
    ▼
 { nodes, edges, errors }
-   │  layout()        src/core/layout.ts
+   │  layout()
    ▼
 { nodes terposisi, dimensi total }
-   │  renderDiagram() src/rendering/diagram.ts
+   │  renderDiagram()
    ▼
-{ markup, viewBox } ──► UI menampilkan SVG + error
+{ markup, viewBox } ──► UI / MiniMermaid.render()
 ```
 
-Prinsip yang dipegang:
-
-1. **`core/` dan `rendering/` tidak menyentuh `document`** — semua fungsi murni, sehingga seluruh unit test bisa berjalan di Node tanpa browser.
-2. **Pengukuran teks bisa disuntik (`TextMeasurer`, Issue #6)** — `layout()`/`compile()` default memakai heuristik `panjang × charWidth`; UI menyuntik measurer berbasis `canvas.measureText()` (dengan cache per teks/font) agar label berkarakter lebar (CJK/emoji) tidak tumpah dari node, tanpa layer core mengenal DOM.
-3. **Error dikumpulkan sebagai data** (array string), bukan exception, agar UI bisa menampilkan semua masalah sekaligus sambil tetap merender hasil parsial.
-4. **Menambah bentuk baru** hanya perlu: tambahkan 1 entri di `ShapeKind` (`core/types.ts`), 1 alias di `core/shapes.ts`, 1 ukuran minimum di `core/layout.ts`, dan 1 renderer di `rendering/shapes.ts`.
+**Prinsip:**
+1. **`core/` & `rendering/` tidak menyentuh `document`** — Memungkinkan pengujian di Node.js dan SSR.
+2. **Error dikumpulkan sebagai data** — Bukan exception, sehingga UI bisa menampilkan semua error sekaligus.
+3. **Renderer Modular** — Menambah tipe diagram baru cukup dengan membuat file *engine* baru di `core/` dan memanggilnya di `compile.ts`.
 
 ---
 
-## Struktur Proyek
+## 📂 Struktur Proyek
 
-```
-diagram/
-├─ index.html                 # shell tipis (tanpa inline CSS/JS)
-├─ package.json
-├─ tsconfig.json              # TypeScript strict
-├─ vite.config.ts             # konfigurasi Vite + Vitest
-├─ legacy/                    # backup versi HTML asli (opsional, boleh dihapus)
+```text
+minimermaid/
+├─ index.html                 # Shell aplikasi playground
 ├─ src/
-│  ├─ main.ts                 # bootstrap
-│  ├─ core/
-│  │  ├─ types.ts  config.ts  shapes.ts
-│  │  ├─ parser.ts  layout.ts  compile.ts
-│  ├─ rendering/
-│  │  ├─ svg-utils.ts  shapes.ts  text.ts
-│  │  ├─ edge.ts  diagram.ts
-│  ├─ ui/
-│  │  ├─ dom.ts  editor.ts  preview.ts  app.ts
-│  │  ├─ canvas-measurer.ts   # TextMeasurer canvas (Issue #6)
-│  └─ styles/main.css         # tema gelap + layout responsif
-└─ tests/
-   ├─ parser.test.ts          # sintaks, alias, komentar, direktif arah, error
-   ├─ layout.test.ts          # penumpukan vertikal/horizontal, centering, ukuran minimum
-   ├─ compile.test.ts         # ujung-ke-ujung: teks → SVG, escape, edge berarah
-   ├─ measurer.test.ts        # injeksi TextMeasurer, CJK/emoji, regresi default
-   └─ _verify.test.ts         # skrip dump internal (debug, bukan test regresi)
+│  ├─ lib.ts                  # Entry point library publik
+│  ├─ main.ts                 # Bootstrap aplikasi playground
+│  ├─ core/                   # Parser & Layout engine
+│  ├─ rendering/              # SVG string generators
+│  ├─ ui/                     # Logika antarmuka playground
+│  └─ styles/
+├─ docs/                      # Dokumentasi Vue 3 (Siap deploy ke Vercel)
+│  ├─ src/views/              # Halaman dokumentasi (Home, Syntax, Examples)
+│  └─ vite.config.ts
+├─ tests/                     # Unit test (Vitest)
+├─ package.json
+└─ vite.config.ts
 ```
 
 ---
 
-## Testing
+## 🧪 Testing
+
+Proyek ini menggunakan **Vitest** untuk pengujian unit secara menyeluruh tanpa membutuhkan browser (Node environment).
 
 ```bash
-npm test
+npm test           # Jalankan seluruh test
+npm run test:watch # Mode watch
 ```
 
-Cakupan test (46 test, seluruhnya lulus — 45 kasus regresi di 4 file plus 1 test dump internal `tests/_verify.test.ts`):
-
-- **Parser (14)** — tokenisasi bentuk/label/link, alias Indonesia, komentar, eskap `\n`, rantai edge, pesan error bernomor baris, direktif arah `[horizontal]`/`[vertikal]` beserta alias dan posisinya.
-- **Layout (8)** — penumpukan vertikal & horizontal dengan gap konstan, rata tengah, ukuran minimum per bentuk, pemecahan label multi-baris, default arah.
-- **Compile/Render (17)** — viewBox valid, kanvas kosong untuk sumber kosong, escape karakter XML berbahaya (`<script>` → `&lt;script&gt;`), marker panah pada edge bertaut, ke-10 bentuk menghasilkan elemen SVG yang benar (via `it.each`), edge horizontal (kanan→kiri) saat `[horizontal]`, hasil parsial saat ada error, kesetaraan `[vertikal]` eksplisit dengan default.
-- **Measurer (6, Issue #6)** — heuristik bawaan tetap `panjang × charWidth`, measurer suntikan memperlebar node sesuai metrik karakter lebar (CJK), measurer nol tidak menembus ukuran minimum, pemilihan baris terpanjang multi-baris, `compile()` meneruskan opsi `measure` (viewBox ikut melebar), dan regresi: tanpa opsi hasilnya identik dengan perilaku lama.
+Mencakup pengujian parser, layout, render SVG, injeksi measurer (untuk karakter CJK/emoji), hingga engine khusus (Sequence, State, Class).
 
 ---
 
-## Teknologi
+## 💻 Teknologi
 
-| Komponen | Versi | Peran |
-|---|---|---|
-| TypeScript | 5.x (strict) | Tipisasi menyeluruh, tanpa runtime |
-| Vite | 7.x | Dev server + bundler produksi |
-| Vitest | 3.x | Unit test berbasis Node |
-
-Tanpa dependensi runtime — hasil build murni HTML + CSS + JS.
+| Komponen | Peran |
+|---|---|
+| **TypeScript (Strict)** | Tipisasi menyeluruh, zero runtime errors |
+| **Vite** | Build tool & bundler (UMD / ESM) |
+| **Vue 3** | Framework untuk halaman dokumentasi (`docs/`) |
+| **Vitest** | Unit testing (Node environment) |
+| **Lucide** | Penyedia ikon SVG |
 
 ---
 
-## Lisensi
+## 📄 Lisensi
 
-MIT — silakan dipakai, dimodifikasi, dan dibagikan.
+MIT — silakan dipakai, dimodifikasi, dan dibagikan secara bebas.

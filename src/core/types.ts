@@ -9,18 +9,24 @@ export type ShapeKind =
 export interface NodeSpec {
   readonly shape: ShapeKind;
   readonly label: string;
-  readonly icon?: string; // <-- Properti ikon baru
-  readonly link: boolean;
+  readonly icon?: string;
+  readonly color?: string;
+  readonly link?: string;       // URL tujuan
+  readonly tooltip?: string;    // Pesan hover
+  readonly hasLink: boolean;    // Menggantikan properti `link` boolean
   readonly branch: boolean;
   readonly parent?: number;
   readonly side?: 'yes' | 'no';
   readonly group?: string;
+  readonly lane?: string;
 }
 
 export interface EdgeSpec {
   readonly from: number;
   readonly to: number;
   readonly label?: string;
+  readonly undirected?: boolean; // <-- Properti baru
+
 }
 
 export type Direction = 'vertical' | 'horizontal';
@@ -43,9 +49,12 @@ export interface PositionedNode extends NodeSpec {
   readonly w: number;
   readonly h: number;
   readonly lines: string[];
+  readonly isLane?: boolean; // <-- Penanda Swimlane
+
 }
 
 export interface GroupBox {
+  [x: string]: any;
   readonly name: string;
   readonly x: number;
   readonly y: number;

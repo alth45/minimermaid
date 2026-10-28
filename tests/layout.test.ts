@@ -6,7 +6,7 @@ import type { NodeSpec } from '../src/core/types';
 const node = (label: string, shape: NodeSpec['shape'] = 'square', branch = false): NodeSpec => ({
   shape,
   label,
-  link: false,
+  hasLink: false,
   branch,
 });
 

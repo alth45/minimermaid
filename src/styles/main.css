@@ -292,3 +292,11 @@ header button svg {
   height: 14px;
   stroke-width: 2.5;
 }
+/* Tambahkan di bagian bawah CSS */
+svg#canvas a g.node:hover rect,
+svg#canvas a g.node:hover ellipse,
+svg#canvas a g.node:hover polygon,
+svg#canvas a g.node:hover path {
+  filter: brightness(1.3) drop-shadow(0 0 6px rgba(88, 166, 255, 0.6));
+  transition: all 0.2s ease;
+}

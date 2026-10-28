@@ -9,7 +9,6 @@
     </div>
 
     <h2 style="margin-top: 40px;">Kode JavaScript yang Dijalankan:</h2>
-    <!-- Gunakan CodeBlock di sini -->
     <CodeBlock language="javascript" :code="jsOutput" />
   </div>
 </template>
@@ -19,12 +18,16 @@ import { ref, watch, onMounted } from 'vue';
 import CodeBlock from '../components/CodeBlock.vue';
 import MiniMermaid from 'minimermaid';
 
-const code = ref(`[group "Core System"]
-  [cabang]->[diamond]->icon["shield"]->text["Autentikasi?"]
-    ->ya["Ya"]
-      ->[round]->icon["check"]->text["Akses Diterima"]
-    ->tidak["Tidak"]
-      ->[hexagon]->icon["alert-triangle"]->text["Blokir IP"]`);
+// Kode default sekarang menggunakan fitur Warna, Rich Text, dan Interaktif
+const code = ref(`[horizontal]
+[group "Sistem Autentikasi"]
+  [cabang]->[diamond:orange]->text["Cek *Kredensial*?"]
+    ->ya["Valid"]
+      ->[round:green]->text["Login **Sukses**"]->node
+      ->[square]->text["Dashboard Admin"]
+    ->tidak["Invalid"]
+      ->[square:red]->text["Akses Ditolak"]->node
+      ->[square]->text["Buka Halaman Login"]->link["https://example.com/login"]->tooltip["Kembali ke Login"]`);
 
 const previewEl = ref<HTMLElement | null>(null);
 const jsOutput = ref('');
@@ -33,13 +36,12 @@ const renderDiagram = () => {
   if (!previewEl.value) return;
   
   MiniMermaid.renderTo(previewEl.value, code.value, {
-    edgeStyle: 'step',
+    edgeStyle: 'smooth',
     getIcon: MiniMermaid.getLucideIcon
   });
 
-  // Update string JS output agar ter-highlight
   jsOutput.value = `MiniMermaid.renderTo(previewEl, \`${code.value}\`, {
-  edgeStyle: 'step',
+  edgeStyle: 'smooth',
   getIcon: MiniMermaid.getLucideIcon
 });`;
 };
