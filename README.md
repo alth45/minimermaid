@@ -1,7 +1,7 @@
 
 # MiniMermaid — Diagram dari Teks
 
-> Library *Diagram-as-Code* (TypeScript) yang ringan dan interaktif. Ubah teks sederhana menjadi diagram SVG yang indah, mendukung Flowchart, Swimlane, Sequence, Class, State, dan Network Graph.
+> Library *Diagram-as-Code* (TypeScript) yang ringan dan interaktif. Ubah teks sederhana menjadi diagram SVG yang indah, mendukung 6 jenis diagram, ikon, dan interaktivitas tanpa dependensi framework.
 
 ![Stack](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Build](https://img.shields.io/badge/build-Vite%207-646CFF)
@@ -11,12 +11,12 @@
 
 ## ✨ Fitur Utama
 
-- **6 Tipe Diagram**: Flowchart, Swimlane, Sequence, Class, State, dan Network Graph.
+- **6 Tipe Diagram**: Flowchart, Swimlane, Sequence, Class (UML), State, dan Network Graph.
 - **Interactive Nodes**: Tambahkan URL (`->link["..."]`) dan pesan hover (`->tooltip["..."]`) langsung ke dalam node.
 - **Inline Styling**: Beri warna khusus pada node secara instan (misal `[square:red]`).
 - **Rich Text**: Dukung format **Tebal**, *Miring*, dan `Kode` (Markdown-lite) di dalam label.
 - **Grouping & Swimlane**: Kelompokkan node dengan kotak `[group]` atau pisahkan berdasarkan aktor `[lane]`.
-- **Lucide Icons**: Suntikkan ribuan ikon SVG *open-source* (misal `->icon["user"]`).
+- **Lucide Icons**: Suntikkan ribuan ikon SVG *open-source* ke dalam node (misal `->icon["user"]`).
 - **Edge Fleksibel**: Pilih gaya garis panah: *Smooth* (Melengkung), *Step* (Siku/Tegas), atau *Straight* (Lurus).
 - **Zero DOM Core**: Logika *parsing* dan *layout* murni berjalan tanpa DOM, memudahkan pengujian dan rendering *Server-Side* (SSR).
 
@@ -82,7 +82,9 @@ participant Pengguna
 participant Sistem
 
 Pengguna -> Sistem: Login Request
-Sistem --> Pengguna: Login Berhasil
+loop HealthCheck
+    Sistem --> Pengguna: Login Berhasil
+end
 ```
 
 ### 4. Class Diagram (UML)
@@ -96,6 +98,7 @@ class Duck {
   +swim()
 }
 Animal <|-- Duck
+note for Duck "Bisa berenang"
 ```
 
 ### 5. State Diagram (Siklus Hidup)
@@ -137,7 +140,7 @@ Pusat --- Cabang : "Laporan"
   ->[square]->text["Validasi Kartu"]
 ```
 
-*(Baca dokumentasi lengkap di folder `docs/`)*
+*(Baca dokumentasi interaktif lengkap di folder `docs/`)*
 
 ---
 
@@ -196,11 +199,34 @@ minimermaid/
 │  ├─ lib.ts                  # Entry point library publik
 │  ├─ main.ts                 # Bootstrap aplikasi playground
 │  ├─ core/                   # Parser & Layout engine
+│  │  ├─ types.ts             # Tipe data & antarmuka
+│  │  ├─ config.ts            # Konstanta & palette
+│  │  ├─ shapes.ts            # Resolusi alias bentuk
+│  │  ├─ parser.ts            # Parser flowchart & swimlane
+│  │  ├─ layout.ts            # Layout engine flowchart
+│  │  ├─ sequence.ts          # Layout engine sequence
+│  │  ├─ class-diagram.ts     # Layout engine class (UML)
+│  │  ├─ state-diagram.ts     # Layout engine state
+│  │  ├─ network-diagram.ts   # Layout engine network graph
+│  │  └─ compile.ts           # Pipeline utama
 │  ├─ rendering/              # SVG string generators
+│  │  ├─ svg-utils.ts         # Helper XML & format angka
+│  │  ├─ shapes.ts            # Renderer 10 bentuk node
+│  │  ├─ text.ts              # Renderer teks (rich text & ikon)
+│  │  ├─ edge.ts              # Renderer garis & panah
+│  │  ├─ group.ts             # Renderer kotak group/lane
+│  │  └─ diagram.ts           # Komposisi defs/edges/nodes
 │  ├─ ui/                     # Logika antarmuka playground
+│  │  ├─ dom.ts               # Helper query selector
+│  │  ├─ editor.ts            # Pembungkus textarea
+│  │  ├─ preview.ts           # Kanvas SVG + Zoom/Pan
+│  │  ├─ canvas-measurer.ts   # TextMeasurer berbasis canvas
+│  │  └─ app.ts               # Orkestrator UI
 │  └─ styles/
+│     └─ main.css             # Tema gelap playground
 ├─ docs/                      # Dokumentasi Vue 3 (Siap deploy ke Vercel)
 │  ├─ src/views/              # Halaman dokumentasi (Home, Syntax, Examples)
+│  ├─ src/components/         # Komponen Vue (CodeBlock, LiveDiagram)
 │  └─ vite.config.ts
 ├─ tests/                     # Unit test (Vitest)
 ├─ package.json
@@ -218,7 +244,7 @@ npm test           # Jalankan seluruh test
 npm run test:watch # Mode watch
 ```
 
-Mencakup pengujian parser, layout, render SVG, injeksi measurer (untuk karakter CJK/emoji), hingga engine khusus (Sequence, State, Class).
+Mencakup pengujian parser, layout, render SVG, injeksi measurer (untuk karakter CJK/emoji), hingga engine khusus (Sequence, State, Class, Network).
 
 ---
 

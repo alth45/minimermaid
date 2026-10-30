@@ -1,12 +1,16 @@
-import type { TextMeasurer, EdgeStyle, ShapeKind, PositionedNode, EdgeSpec } from './types';
 import { renderDiagram } from '../rendering/diagram';
 import { heuristicMeasurer } from './layout';
 import { LAYOUT } from './config';
+import type { TextMeasurer, EdgeStyle, ShapeKind, PositionedNode, EdgeSpec, ThemeColors } from './types';
+import { THEMES } from './config';
+
 
 export function renderStateDiagram(
   source: string,
   edgeStyle: EdgeStyle = 'smooth',
-  measurer: TextMeasurer = heuristicMeasurer
+  measurer: TextMeasurer = heuristicMeasurer,
+  theme: ThemeColors = THEMES.dark,   
+
 ): { markup: string; viewBox: string; errors: string[] } {
   const errors: string[] = [];
   const lines = source.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
@@ -196,6 +200,6 @@ export function renderStateDiagram(
     direction: 'vertical' as const,
   };
 
-  const result = renderDiagram(geometry, edgeStyle, () => undefined);
+  const result = renderDiagram(geometry, edgeStyle, () => undefined, theme);
   return { markup: result.markup, viewBox: result.viewBox, errors };
 }

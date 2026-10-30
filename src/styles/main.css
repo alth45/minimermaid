@@ -2,114 +2,203 @@
    Tema & tata letak MiniMermaid (diekstrak dari versi HTML).
    ========================================================= */
 
-:root{
-  --bg:#0d1117;
-  --panel:#161b22;
-  --panel-2:#0f141b;
-  --border:#30363d;
-  --text:#e6edf3;
-  --muted:#8b949e;
-  --accent:#58a6ff;
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-2: #0f141b;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
 }
-*{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; }
-body{
-  background:var(--bg);
-  color:var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  display:flex; flex-direction:column; overflow:hidden;
-}
-header{
-  display:flex; align-items:center; gap:12px;
-  padding:10px 16px;
-  border-bottom:1px solid var(--border);
-  background:var(--panel);
-  flex:0 0 auto;
-}
-header h1{
-  font-size:15px; margin:0; font-weight:600; letter-spacing:.2px;
-}
-header h1 span{ color:var(--accent); }
-header .spacer{ flex:1; }
-header button{
-  background:#21262d; color:var(--text); border:1px solid var(--border);
-  padding:6px 12px; border-radius:6px; font-size:12.5px; cursor:pointer;
-}
-header button:hover{ background:#30363d; border-color:#484f58; }
 
-.app{
-  flex:1 1 auto; min-height:0;
-  display:grid;
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex: 0 0 auto;
+}
+
+header h1 {
+  font-size: 15px;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+
+header h1 span {
+  color: var(--accent);
+}
+
+header .spacer {
+  flex: 1;
+}
+
+header button {
+  background: #21262d;
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+header button:hover {
+  background: #30363d;
+  border-color: #484f58;
+}
+
+.app {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
   grid-template-columns: minmax(280px, 34%) 1fr;
 }
 
-.editor{
-  display:flex; flex-direction:column; min-height:0;
-  border-right:1px solid var(--border);
-  background:var(--panel-2);
-}
-.editor .label{
-  font-size:11px; text-transform:uppercase; letter-spacing:.12em;
-  color:var(--muted); padding:10px 14px 6px;
-}
-textarea{
-  flex:1 1 auto; min-height:0; resize:none;
-  background:transparent; color:#c9d1d9; border:0; outline:none;
-  padding:0 14px 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size:13px; line-height:1.65; tab-size:2;
-}
-.help{
-  border-top:1px solid var(--border);
-  padding:10px 14px 14px;
-  font-size:11.5px; color:var(--muted); line-height:1.7;
-  max-height:38%; overflow:auto;
-}
-.help code{
-  background:#21262d; padding:1px 5px; border-radius:4px;
-  color:#79c0ff; font-family: ui-monospace, monospace; font-size:11px;
+.editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--panel-2);
 }
 
-.preview{
-  position:relative; min-height:0;
+.editor .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--muted);
+  padding: 10px 14px 6px;
+}
+
+textarea {
+  flex: 1 1 auto;
+  min-height: 0;
+  resize: none;
+  background: transparent;
+  color: #c9d1d9;
+  border: 0;
+  outline: none;
+  padding: 0 14px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  tab-size: 2;
+}
+
+.help {
+  border-top: 1px solid var(--border);
+  padding: 10px 14px 14px;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.7;
+  max-height: 38%;
+  overflow: auto;
+}
+
+.help code {
+  background: #21262d;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #79c0ff;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.preview {
+  position: relative;
+  min-height: 0;
   background:
     radial-gradient(circle at 1px 1px, #21262d 1px, transparent 0) 0 0/22px 22px,
     #0d1117;
-  overflow:hidden;
+  overflow: hidden;
 }
-svg#canvas{ width:100%; height:100%; display:block; cursor: grab; user-select: none; }
-svg#canvas:active{cursor: grabbing;}
 
-#errors{
-  position:absolute; left:14px; bottom:14px; right:14px;
-  display:flex; flex-direction:column; gap:6px;
-  pointer-events:none;
+svg#canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  user-select: none;
 }
-#errors div{
-  background:rgba(248,81,73,.12);
-  border:1px solid rgba(248,81,73,.45);
-  color:#ff9c94;
-  font-size:12px; padding:7px 11px; border-radius:7px;
+
+svg#canvas:active {
+  cursor: grabbing;
+}
+
+#errors {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+#errors div {
+  background: rgba(248, 81, 73, .12);
+  border: 1px solid rgba(248, 81, 73, .45);
+  color: #ff9c94;
+  font-size: 12px;
+  padding: 7px 11px;
+  border-radius: 7px;
   font-family: ui-monospace, monospace;
   backdrop-filter: blur(4px);
 }
-@media (max-width: 760px){
-  .app{ grid-template-columns:1fr; grid-template-rows: 42% 58%; }
-  .editor{ border-right:0; border-bottom:1px solid var(--border); }
+
+@media (max-width: 760px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 42% 58%;
+  }
+
+  .editor {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
 }
 
 
-.app{
-  flex:1 1 auto; min-height:0;
-  display:grid;
+.app {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
   grid-template-columns: minmax(280px, 34%) 1fr;
-  transition: grid-template-columns 0.3s ease-in-out; /* Animasi geser */
+  transition: grid-template-columns 0.3s ease-in-out;
+  /* Animasi geser */
 }
 
-.editor{
-  display:flex; flex-direction:column; min-height:0;
-  border-right:1px solid var(--border);
-  background:var(--panel-2);
+.editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--panel-2);
   /* Tambahan agar bisa mengecil ke 0px dengan mulus */
   min-width: 0;
   overflow: hidden;
@@ -120,28 +209,33 @@ svg#canvas:active{cursor: grabbing;}
 .app.hide-editor {
   grid-template-columns: 0 1fr;
 }
+
 .app.hide-editor .editor {
   opacity: 0;
-  pointer-events: none; /* Cegah interaksi tak sengaja */
+  pointer-events: none;
+  /* Cegah interaksi tak sengaja */
   border-right: 0;
 }
 
 /* Penyesuaian Mobile */
-@media (max-width: 760px){
-  .app{ 
-    grid-template-columns:1fr; 
-    grid-template-rows: 42% 58%; 
+@media (max-width: 760px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 42% 58%;
     transition: grid-template-rows 0.3s ease-in-out;
   }
+
   .app.hide-editor {
     grid-template-rows: 0 1fr;
   }
-  .editor { 
-    border-right:0; 
-    border-bottom:1px solid var(--border); 
+
+  .editor {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
   }
-  .app.hide-editor .editor { 
-    border-bottom: 0; 
+
+  .app.hide-editor .editor {
+    border-bottom: 0;
   }
 }
 
@@ -150,7 +244,10 @@ svg#canvas:active{cursor: grabbing;}
    ========================================================= */
 .modal-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
   display: flex;
@@ -161,6 +258,7 @@ svg#canvas:active{cursor: grabbing;}
   pointer-events: none;
   transition: opacity 0.2s ease;
 }
+
 .modal-overlay.open {
   opacity: 1;
   pointer-events: auto;
@@ -175,10 +273,11 @@ svg#canvas:active{cursor: grabbing;}
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   transform: translateY(20px);
   transition: transform 0.2s ease;
 }
+
 .modal-overlay.open .modal-content {
   transform: translateY(0);
 }
@@ -190,11 +289,13 @@ svg#canvas:active{cursor: grabbing;}
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
 }
+
 .modal-header h2 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
 }
+
 .close-btn {
   background: transparent;
   border: 0;
@@ -203,7 +304,10 @@ svg#canvas:active{cursor: grabbing;}
   cursor: pointer;
   line-height: 1;
 }
-.close-btn:hover { color: var(--text); }
+
+.close-btn:hover {
+  color: var(--text);
+}
 
 .modal-body {
   padding: 20px;
@@ -219,13 +323,22 @@ svg#canvas:active{cursor: grabbing;}
   border-radius: 8px;
   padding: 16px;
 }
+
 .doc-item h3 {
   margin: 0 0 8px 0;
   font-size: 14px;
   color: var(--accent);
 }
-.doc-item p { margin: 0 0 12px 0; color: var(--muted); }
-.doc-item ul { margin: 0 0 12px 0; padding-left: 20px; }
+
+.doc-item p {
+  margin: 0 0 12px 0;
+  color: var(--muted);
+}
+
+.doc-item ul {
+  margin: 0 0 12px 0;
+  padding-left: 20px;
+}
 
 .doc-item pre {
   background: #0d1117;
@@ -235,6 +348,7 @@ svg#canvas:active{cursor: grabbing;}
   border: 1px solid #30363d;
   margin: 0 0 12px 0;
 }
+
 .doc-item code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12.5px;
@@ -252,7 +366,10 @@ svg#canvas:active{cursor: grabbing;}
   cursor: pointer;
   transition: opacity 0.2s;
 }
-.try-btn:hover { opacity: 0.8; }
+
+.try-btn:hover {
+  opacity: 0.8;
+}
 
 header select {
   background: #21262d;
@@ -264,27 +381,31 @@ header select {
   cursor: pointer;
   outline: none;
 }
+
 header select:hover {
   background: #30363d;
   border-color: #484f58;
 }
 
 header button {
-  background: #21262d; 
-  color: var(--text); 
+  background: #21262d;
+  color: var(--text);
   border: 1px solid var(--border);
-  padding: 6px 12px; 
-  border-radius: 6px; 
-  font-size: 12.5px; 
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
   cursor: pointer;
-  
+
   /* Tambahan untuk Lucide Icon */
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-header button:hover { background: #30363d; border-color: #484f58; }
+header button:hover {
+  background: #30363d;
+  border-color: #484f58;
+}
 
 /* Ukuran Ikon Lucide */
 header button svg {
@@ -292,6 +413,7 @@ header button svg {
   height: 14px;
   stroke-width: 2.5;
 }
+
 /* Tambahkan di bagian bawah CSS */
 svg#canvas a g.node:hover rect,
 svg#canvas a g.node:hover ellipse,
@@ -299,4 +421,492 @@ svg#canvas a g.node:hover polygon,
 svg#canvas a g.node:hover path {
   filter: brightness(1.3) drop-shadow(0 0 6px rgba(88, 166, 255, 0.6));
   transition: all 0.2s ease;
+}
+
+/* === Zoom Controls === */
+.zoom-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(22, 27, 34, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  backdrop-filter: blur(6px);
+  z-index: 5;
+}
+
+.zoom-controls button {
+  width: 32px;
+  height: 32px;
+  background: #21262d;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.zoom-controls button:hover {
+  background: #30363d;
+  border-color: #484f58;
+}
+
+.zoom-controls button svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2;
+}
+
+/* === Toast Notification === */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: #21262d;
+  color: var(--text);
+  border: 1px solid var(--accent);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.toast-error {
+  border-color: #f85149;
+  color: #ff9c94;
+}
+
+/* ==== THEME: LIGHT ==== */
+body[data-theme="light"] {
+  --bg: #ffffff;
+  --panel: #f6f8fa;
+  --panel-2: #f6f8fa;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --muted: #57606a;
+  --accent: #0969da;
+}
+
+body[data-theme="light"] header button,
+body[data-theme="light"] header select,
+body[data-theme="light"] .zoom-controls button {
+  background: #f6f8fa;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+body[data-theme="light"] header button:hover,
+body[data-theme="light"] header select:hover,
+body[data-theme="light"] .zoom-controls button:hover {
+  background: #eaeef2;
+  border-color: #afb8c1;
+}
+
+body[data-theme="light"] .preview {
+  background:
+    radial-gradient(circle at 1px 1px, #d0d7de 1px, transparent 0) 0 0/22px 22px,
+    #ffffff;
+}
+
+body[data-theme="light"] textarea {
+  color: #24292f;
+}
+
+body[data-theme="light"] .help code {
+  background: #eaeef2;
+  color: #0550ae;
+}
+
+body[data-theme="light"] #errors div {
+  background: rgba(207, 34, 46, 0.08);
+  border-color: rgba(207, 34, 46, 0.35);
+  color: #cf222e;
+}
+
+body[data-theme="light"] .toast {
+  background: #ffffff;
+  color: #1f2328;
+  border-color: var(--accent);
+}
+
+body[data-theme="light"] .doc-item pre {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+body[data-theme="light"] .doc-item code {
+  color: #24292f;
+}
+
+/* Transisi halus saat toggle */
+body,
+header,
+textarea,
+.preview,
+.doc-item,
+.doc-item pre,
+.modal-content {
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease;
+}
+
+/* === Drag & drop indicator === */
+.preview.drag-over::after {
+  content: 'Lepaskan .mmd.json di sini';
+  position: absolute;
+  inset: 12px;
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  background: rgba(88, 166, 255, 0.08);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Light theme override */
+body[data-theme="light"] .preview.drag-over::after {
+  background: rgba(9, 105, 218, 0.08);
+}
+
+/* === Shortcuts Modal === */
+.modal-content.modal-narrow {
+  max-width: 560px;
+}
+
+.shortcut-group {
+  margin-bottom: 20px;
+}
+
+.shortcut-group:last-child {
+  margin-bottom: 0;
+}
+
+.shortcut-group h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--muted);
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.shortcut-group dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 20px;
+  margin: 0;
+  align-items: center;
+}
+
+.shortcut-group dt {
+  color: var(--text);
+  font-size: 13px;
+  margin: 0;
+}
+
+.shortcut-group dd {
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.shortcut-group .sep {
+  color: var(--muted);
+  margin: 0 2px;
+  font-size: 11px;
+}
+
+kbd {
+  display: inline-block;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--text);
+  box-shadow: 0 1px 0 #30363d;
+  line-height: 1;
+  min-width: 22px;
+  text-align: center;
+}
+
+body[data-theme="light"] kbd {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+  box-shadow: 0 1px 0 #d0d7de;
+}
+
+/* === Property Panel === */
+.property-panel {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 300px;
+  max-height: calc(100% - 100px);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  overflow: hidden;
+}
+
+.property-panel[hidden] {
+  display: none;
+}
+
+.pp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pp-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.pp-close {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.pp-close:hover {
+  color: var(--text);
+}
+
+.pp-body {
+  padding: 12px 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pp-field>span {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pp-field input,
+.pp-field select,
+.pp-field textarea {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pp-field textarea {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  resize: vertical;
+  min-height: 42px;
+}
+
+.pp-field input:focus,
+.pp-field select:focus,
+.pp-field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+
+.pp-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.pp-footer button {
+  padding: 6px 14px;
+  border-radius: 5px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.pp-cancel {
+  background: transparent;
+  color: var(--muted);
+}
+
+.pp-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.pp-apply {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.pp-apply:hover {
+  opacity: 0.9;
+}
+
+/* === Node selection === */
+svg#canvas g.node {
+  cursor: pointer;
+}
+
+svg#canvas g.node.selected rect,
+svg#canvas g.node.selected ellipse,
+svg#canvas g.node.selected polygon,
+svg#canvas g.node.selected path {
+  stroke-width: 3.5 !important;
+  filter: drop-shadow(0 0 10px rgba(88, 166, 255, 0.9));
+}
+
+/* Light theme */
+body[data-theme="light"] .pp-field input,
+body[data-theme="light"] .pp-field select,
+body[data-theme="light"] .pp-field textarea {
+  background: white;
+  border-color: #d0d7de;
+}
+
+body[data-theme="light"] .pp-cancel:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* =========================================================
+   BATCH 5B — MINIMAP
+   ========================================================= */
+.minimap {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  width: 180px;
+  height: 135px;
+  padding: 6px;
+  box-sizing: border-box;
+  background: rgba(13, 17, 23, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  z-index: 8;
+  cursor: crosshair;
+  user-select: none;
+  touch-action: none;
+  transition: opacity 0.2s ease;
+}
+
+.minimap[hidden] {
+  display: none;
+}
+
+.minimap-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Isi minimap tidak menangkap pointer — hanya rect yang aktif */
+.minimap-content {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+/* Rect latar transparan — menangkap klik pada area kosong */
+.minimap-bg {
+  cursor: crosshair;
+}
+
+/* Rect viewport — bisa di-drag */
+.minimap-viewport {
+  fill: rgba(88, 166, 255, 0.14);
+  stroke: #58a6ff;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  cursor: move;
+  transition: fill 0.15s ease, stroke 0.15s ease;
+}
+
+.minimap-viewport:hover {
+  fill: rgba(88, 166, 255, 0.25);
+  stroke: #79c0ff;
+}
+
+/* Light theme */
+body[data-theme="light"] .minimap {
+  background: rgba(246, 248, 250, 0.95);
+  border-color: #d0d7de;
+}
+
+body[data-theme="light"] .minimap-viewport {
+  fill: rgba(9, 105, 218, 0.12);
+  stroke: #0969da;
+}
+
+body[data-theme="light"] .minimap-viewport:hover {
+  fill: rgba(9, 105, 218, 0.22);
+  stroke: #0550ae;
+}
+
+/* Pindahkan kotak error ke kanan-atas agar tidak tabrakan dengan minimap */
+#errors {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 260px;
+  /* beri ruang untuk zoom-controls di kanan-atas */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
 }

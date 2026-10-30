@@ -1,47 +1,84 @@
-import type { ShapeKind } from './types';
+import type { ShapeKind, ThemeColors, ThemeName } from './types';
 
 /* =========================================================
    Konstanta & konfigurasi lintas-layer.
    ========================================================= */
 
-/** Warna siklik untuk node (urutan index node % panjang palette). */
-export const PALETTE: readonly string[] = [
-  '#58a6ff', '#a371f7', '#3fb950', '#d29922',
-  '#f778ba', '#39c5cf', '#ff7b72', '#bc8cff',
-];
+const DARK: ThemeColors = {
+  canvasBg:      '#0d1117',
+  nodeText:      '#e6edf3',
+  nodeCodeText:  '#79c0ff',
+  iconStroke:    '#e6edf3',
+  edgeStroke:    '#7d8590',
+  edgeLabelBg:   '#0d1117',
+  edgeLabelText: '#c9d1d9',
+  groupStroke:   '#58a6ff',
+  groupFill:     '#0d1117',
+  groupText:     '#8b949e',
+  laneFill:      '#161b22',
+  laneHeader:    '#21262d',
+  laneStroke:    '#30363d',
+  laneText:      '#c9d1d9',
+  classFill:     '#161b22',
+  classStroke:   '#58a6ff',
+  classTitle:    '#e6edf3',
+  classBody:     '#c9d1d9',
+  noteFill:      '#fef08a',
+  noteStroke:    '#d29922',
+  noteText:      '#422006',
+  palette: ['#58a6ff', '#a371f7', '#3fb950', '#d29922', '#f778ba', '#39c5cf', '#ff7b72', '#bc8cff'],
+};
 
-/** Parameter pengukuran & penataan layout. */
+const LIGHT: ThemeColors = {
+  canvasBg:      '#ffffff',
+  nodeText:      '#1f2328',
+  nodeCodeText:  '#0550ae',
+  iconStroke:    '#1f2328',
+  edgeStroke:    '#656d76',
+  edgeLabelBg:   '#ffffff',
+  edgeLabelText: '#1f2328',
+  groupStroke:   '#0969da',
+  groupFill:     '#f6f8fa',
+  groupText:     '#57606a',
+  laneFill:      '#f6f8fa',
+  laneHeader:    '#eaeef2',
+  laneStroke:    '#d0d7de',
+  laneText:      '#1f2328',
+  classFill:     '#f6f8fa',
+  classStroke:   '#0969da',
+  classTitle:    '#1f2328',
+  classBody:     '#24292f',
+  noteFill:      '#fff8c5',
+  noteStroke:    '#bf8700',
+  noteText:      '#4d2d00',
+  palette: ['#0969da', '#8250df', '#1a7f37', '#9a6700', '#bf3989', '#1b7c83', '#cf222e', '#6639ba'],
+};
+
+export const THEMES: Record<ThemeName, ThemeColors> = { dark: DARK, light: LIGHT };
+
+/** Default palette (dark) — tetap diekspor untuk backwards-compat. */
+export const PALETTE: readonly string[] = DARK.palette;
+
 export const LAYOUT = {
-  /** Perkiraan lebar karakter pada font 14px. */
   charWidth: 8.4,
-  /** Tinggi satu baris teks. */
   lineHeight: 19,
-  /** Jarak antar node sepanjang arah layout (vertikal/horizontal). */
   gap: 74,
-  /** Jarak extra antar blok (rantai/percabangan) sepanjang arah layout. */
   blockGap: 26,
-  /** Lebar minimum kolom label edge percabangan. */
   branchLabelMinW: 40,
-  /** Padding dasar ukuran node. */
   padX: 46,
   padY: 34,
-  /** Ukuran minimum node per bentuk. */
   minW: 110,
   minH: 58,
 } as const;
 
-/** Padding kanvas SVG di sekeliling diagram. */
 export const CANVAS_PADDING = 52;
 
-/** Semua bentuk yang didukung, untuk dokumentasi/validasi. */
 export const ALL_SHAPES: readonly ShapeKind[] = [
   'square', 'round', 'circle', 'ellipse', 'diamond',
   'triangle', 'hexagon', 'parallelogram', 'cylinder', 'document',
 ];
 
-/** Kode contoh yang dimuat saat pertama kali dibuka. */
-export const DEFAULT_SOURCE =
-`# MiniMermaid — contoh diagram
+export const DEFAULT_SOURCE = `# MiniMermaid — contoh diagram
 ->[round]->text["Mulai"]->node
 ->[diamond]->text["Kondisi\\nterpenuhi?"]->node
 ->[square]->text["Proses data"]->node

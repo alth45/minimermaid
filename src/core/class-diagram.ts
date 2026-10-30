@@ -1,8 +1,10 @@
 import type { TextMeasurer, EdgeStyle } from './types';
 import { escapeXml, num } from '../rendering/svg-utils';
-import { UML_ARROW_DEFS } from '../rendering/edge';
+import { arrowDefs, UML_ARROW_DEFS } from '../rendering/edge';
 import { heuristicMeasurer } from './layout';
-
+import { THEMES } from './config';
+import type { ThemeColors } from './types';
+import { umlArrowDefs } from '../rendering/edge';   // ganti UML_ARROW_DEFS
 /* =========================================================
    CLASS DIAGRAM ENGINE
    ========================================================= */
@@ -22,7 +24,9 @@ interface ClassNode {
 export function renderClassDiagram(
   source: string,
   edgeStyle: EdgeStyle = 'smooth',
-  measurer: TextMeasurer = heuristicMeasurer
+  measurer: TextMeasurer = heuristicMeasurer,
+  theme: ThemeColors = THEMES.dark, 
+
 ): { markup: string; viewBox: string; errors: string[] } {
   const errors: string[] = [];
   const lines = source.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
@@ -167,7 +171,7 @@ export function renderClassDiagram(
   for (const c of classes.values()) c.x -= minX;
 
   // --- 4. RENDERING ---
-  const parts: string[] = [UML_ARROW_DEFS];
+  const parts: string[] = [umlArrowDefs(theme)];
 
   // Gambar Relasi Panah
   for (const parent of classes.values()) {
@@ -189,7 +193,7 @@ export function renderClassDiagram(
         d = `M${num(x1)},${num(y1)} C${num(x1)},${num(y1 + c)} ${num(x2)},${num(y2 - c)} ${num(x2)},${num(y2)}`;
       }
 
-      parts.push(`<path d="${d}" fill="none" stroke="#7d8590" stroke-width="2" marker-end="url(#uml-arrow)" />`);
+      parts.push(`<path d="${d}" fill="none" stroke="${theme.edgeStroke}" stroke-width="2" marker-end="url(#uml-arrow)" />`);
     }
   }
 
@@ -198,7 +202,7 @@ export function renderClassDiagram(
     const bx = c.x - c.w / 2;
     const by = c.y;
 
-    parts.push(`<rect x="${num(bx)}" y="${num(by)}" width="${num(c.w)}" height="${num(c.h)}" fill="#161b22" stroke="#58a6ff" stroke-width="2" rx="4" />`);
+    parts.push(`<rect x="${num(bx)}" y="${num(by)}" width="${num(c.w)}" height="${num(c.h)}" fill="${theme.classFill}" stroke="${theme.classStroke}" stroke-width="2" rx="4" />`);
     
     // Garis Pemisah
     const titleY = by + TITLE_H;
@@ -209,13 +213,13 @@ export function renderClassDiagram(
     }
 
     // Teks Judul
-    parts.push(`<text x="${num(c.x)}" y="${num(by + 21)}" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="bold" fill="#e6edf3">${escapeXml(c.name)}</text>`);
+    parts.push(`<text x="${num(c.x)}" y="${num(by + 21)}" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="bold" fill="${theme.classTitle}">${escapeXml(c.name)}</text>`);
 
     // Atribut
     if (c.attributes.length > 0) {
       currentY += DIV_H;
       c.attributes.forEach((attr, i) => {
-        parts.push(`<text x="${num(bx + PAD)}" y="${num(currentY + 14 + i * LINE_H)}" font-family="ui-monospace, monospace" font-size="13" fill="#c9d1d9">${escapeXml(attr)}</text>`);
+        parts.push(`<text x="${num(bx + PAD)}" y="${num(currentY + 14 + i * LINE_H)}" font-family="ui-monospace, monospace" font-size="13" fill="${theme.classBody}">${escapeXml(attr)}</text>`);
       });
       currentY += c.attributes.length * LINE_H;
     }
@@ -241,12 +245,12 @@ export function renderClassDiagram(
       parts.push(`<line x1="${num(bx + c.w)}" y1="${num(by + 10)}" x2="${num(nx)}" y2="${num(ny + 10)}" stroke="#7d8590" stroke-width="1.5" stroke-dasharray="4 4" />`);
 
       // Kotak Note (Kuning ala UML)
-      parts.push(`<path d="M${num(nx)},${num(ny)} L${num(nx + noteW - 12)},${num(ny)} L${num(nx + noteW)},${num(ny + 12)} L${num(nx + noteW)},${num(ny + noteH)} L${num(nx)},${num(ny + noteH)} Z" fill="#fef08a" stroke="#d29922" stroke-width="1.5" />`);
+      parts.push(`<path d="M${num(nx)},${num(ny)} L${num(nx + noteW - 12)},${num(ny)} L${num(nx + noteW)},${num(ny + 12)} L${num(nx + noteW)},${num(ny + noteH)} L${num(nx)},${num(ny + noteH)} Z" fill="${theme.noteFill}" stroke="${theme.noteStroke}" stroke-width="1.5" />`);
       parts.push(`<path d="M${num(nx + noteW - 12)},${num(ny)} L${num(nx + noteW - 12)},${num(ny + 12)} L${num(nx + noteW)},${num(ny + 12)}" fill="none" stroke="#d29922" stroke-width="1.5" />`);
 
       // Teks Note
       lines.forEach((l, i) => {
-        parts.push(`<text x="${num(nx + 12)}" y="${num(ny + 20 + i * 18)}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#422006">${escapeXml(l)}</text>`);
+        parts.push(`<text x="${num(nx + 12)}" y="${num(ny + 20 + i * 18)}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="${theme.noteText}">${escapeXml(l)}</text>`);
       });
     }
   }

@@ -5,11 +5,16 @@ import { shapeSvg } from '../rendering/shapes';
 import { textSvg } from '../rendering/text';
 import { ARROW_DEFS } from '../rendering/edge';
 import { num, escapeXml } from '../rendering/svg-utils';
+import { THEMES } from './config';
+import type { ThemeColors } from './types';
+import { arrowDefs } from '../rendering/edge';   
 
 export function renderNetworkGraph(
   source: string,
   edgeStyle: EdgeStyle = 'smooth',
-  measurer: TextMeasurer = heuristicMeasurer
+  measurer: TextMeasurer = heuristicMeasurer,
+  theme: ThemeColors = THEMES.dark,   
+
 ): { markup: string; viewBox: string; errors: string[] } {
   const errors: string[] = [];
   const lines = source.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
@@ -166,7 +171,7 @@ export function renderNetworkGraph(
   const height = maxY - minY;
 
   // --- 6. RENDER ---
-  const parts: string[] = [ARROW_DEFS];
+  const parts: string[] = [arrowDefs(theme)];
 
   // A. Gambar Edges
   for (const e of edges) {
@@ -210,22 +215,22 @@ export function renderNetworkGraph(
       d = `M${num(x1)},${num(y1)} C${num(midX)},${num(y1)} ${num(midX)},${num(y2)} ${num(x2)},${num(y2)}`;
     }
     
-    parts.push(`<path d="${d}" fill="none" stroke="#7d8590" stroke-width="2" ${marker} />`);
+    parts.push(`<path d="${d}" fill="none" stroke="${theme.edgeStroke}" stroke-width="2" ${marker} />`);
 
     if (e.label) {
       const mx = (x1 + x2) / 2;
       const my = (y1 + y2) / 2;
       const labelW = e.label.length * 8.4 + 10;
       const labelH = 20;
-      parts.push(`<rect x="${num(mx - labelW/2)}" y="${num(my - labelH/2)}" width="${num(labelW)}" height="${num(labelH)}" rx="4" fill="#0d1117" opacity="0.9"/>`);
-      parts.push(`<text x="${num(mx)}" y="${num(my + 4)}" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#c9d1d9">${escapeXml(e.label)}</text>`);
+      parts.push(`<rect x="${num(mx - labelW/2)}" y="${num(my - labelH/2)}" width="${num(labelW)}" height="${num(labelH)}" rx="4" fill="${theme.edgeLabelBg}" opacity="0.9"/>`);
+      parts.push(`<text x="${num(mx)}" y="${num(my + 4)}" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="${theme.edgeLabelText}">${escapeXml(e.label)}</text>`);
     }
   }
 
   // B. Gambar Nodes
   normalized.forEach((n, i) => {
-    const color = PALETTE[i % PALETTE.length] ?? '#58a6ff';
-    parts.push(`<g class="node">${shapeSvg(n, color)}${textSvg(n)}</g>`);
+    const color = theme.palette[i % theme.palette.length] ?? theme.palette[0]!;
+    parts.push(`<g class="node">${shapeSvg(n, color)}${textSvg(n, undefined, theme)}</g>`);
   });
 
   const p = CANVAS_PADDING;

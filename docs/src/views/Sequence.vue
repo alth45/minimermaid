@@ -17,6 +17,10 @@
     <h2>3. Contoh Lengkap</h2>
     <p>Berikut adalah contoh alur autentikasi pengguna yang melibatkan tiga aktor. Perhatikan bahwa aktor yang tidak dideklarasikan secara eksplisit akan dibuatkan kotaknya secara otomatis.</p>
 
+
+        <h2>4. Blok Loop (Perulangan)</h2>
+    <p>Gunakan <code>loop [Label]</code> dan tutup dengan <code>end</code> untuk membungkus interaksi ke dalam sebuah kotak perulangan. Mendukung juga <i>self-message</i> (Aktor mengirim pesan ke dirinya sendiri).</p>
+
     <CodeBlock language="mermaid" :code="seqFull" />
   </div>
 </template>

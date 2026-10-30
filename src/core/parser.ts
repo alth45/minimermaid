@@ -5,14 +5,16 @@ import { resolveShape } from './shapes';
    PARSER — teks → model diagram.
    ========================================================= */
 
-// Format: ->[bentuk] ->icon[".."] ->text[".."] ->link[".."] ->tooltip[".."] ->node
+// Format: ->[shape:color] ->icon[".."] ->text[".."] ->link[".."] ->tooltip[".."] (->node | -- label -->)
 const LINE_PATTERN =
-  /^->\s*\[\s*([A-Za-z_][A-Za-z0-9_]*(?::[^"\s\]]+)?)\s*\]\s*(?:->\s*icon\s*\[\s*"([^"]*)"\s*\])?\s*(?:->\s*(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\])?\s*(?:->\s*link\s*\[\s*"([^"]*)"\s*\])?\s*(?:->\s*tooltip\s*\[\s*"([^"]*)"\s*\])?\s*(->\s*node)?\s*$/;
+  /^->\s*\[\s*([A-Za-z_][A-Za-z0-9_]*(?::[^"\s\]]+)?)\s*\]\s*(?:->\s*icon\s*\[\s*"([^"]*)"\s*\])?\s*(?:->\s*(?:text|label|txt)?\s*\[\s*"([^"]*)"\s*\])?\s*(?:->\s*link\s*\[\s*"([^"]*)"\s*\])?\s*(?:->\s*tooltip\s*\[\s*"([^"]*)"\s*\])?\s*(?:(->\s*node)|--\s*([^\n]+?)\s*-->)?\s*$/;
 
 const BRANCH_MARKER_PATTERN = /^\[(cabang|branch|if)\]/i;
 const GROUP_PATTERN = /^\[group\s+["']?([^"']+)["']?\]/i;
 const LANE_PATTERN = /^\[lane\s+["']?([^"']+)["']?\]/i;
-const SIDE_PATTERN = /^->\s*(ya|yes|tidak|no)\s*(?:\[\s*"([^"]*)"\s*\])?\s*(?:->\s*link\s*\[\s*"([^"]*)"\s*\])?\s*(?:->\s*tooltip\s*\[\s*"([^"]*)"\s*\])?\s*(->\s*node)?\s*$/i;
+
+// Sisi cabang kini juga menerima -- label -->
+const SIDE_PATTERN = /^->\s*(ya|yes|tidak|no)\s*(?:\[\s*"([^"]*)"\s*\])?\s*(?:->\s*link\s*\[\s*"([^"]*)"\s*\])?\s*(?:->\s*tooltip\s*\[\s*"([^"]*)"\s*\])?\s*(?:(->\s*node)|--\s*([^\n]+?)\s*-->)?\s*$/i;
 const DIRECTION_PATTERN = /^\[\s*(horizontal|horiz|lr|vert(?:ical|ikal)?|tb)\s*\](?:\s+.*$|$)/i;
 
 
@@ -39,18 +41,20 @@ export function parse(source: string): ParseResult {
   });
 
   const addNode = (
-    shape: ShapeKind, label: string, hasLink: boolean, branch: boolean, parent?: number, side?: 'yes' | 'no', group?: string, icon?: string, lane?: string, link?: string, tooltip?: string, color?: string
+    shape: ShapeKind, label: string, hasLink: boolean, branch: boolean,
+    parent?: number, side?: 'yes' | 'no', group?: string, icon?: string,
+    lane?: string, link?: string, tooltip?: string, color?: string,
+    outgoingEdgeLabel?: string, line?: number
   ): number => {
     const idx = nodes.length;
-    nodes.push({ shape, label, hasLink, branch, parent, side, group, icon, lane, link, tooltip, color });
+    nodes.push({ shape, label, hasLink, branch, parent, side, group, icon, lane, link, tooltip, color, outgoingEdgeLabel, line });
     return idx;
   };
 
   const parseNodeLine = (text: string) => {
     const m = LINE_PATTERN.exec(text);
     if (!m || m[1] === undefined) return null;
-    
-    // Pisahkan bentuk dan warna
+
     const shapeTokenRaw = m[1].trim();
     const parts = shapeTokenRaw.split(':');
     const shapeName = parts[0]!;
@@ -58,15 +62,20 @@ export function parse(source: string): ParseResult {
 
     const resolved = resolveShape(shapeName);
     if (resolved === undefined) errors.push(`Bentuk "${shapeName.toLowerCase()}" tidak dikenal, dipakai 'square'.`);
-    
-    return { 
-      shape: resolved ?? ('square' as ShapeKind), 
-      icon: m[2], 
-      label: (m[3] || '').replace(/\\n/g, '\n'), 
-      link: m[4], 
-      tooltip: m[5], 
-      hasLink: m[6] !== undefined,
-      color: customColor
+
+    const hasNodeToken = m[6] !== undefined;
+    const edgeLabelRaw = m[7];
+    const outgoingEdgeLabel = edgeLabelRaw?.trim() || undefined;
+
+    return {
+      shape: resolved ?? ('square' as ShapeKind),
+      icon: m[2],
+      label: (m[3] || '').replace(/\\n/g, '\n'),
+      link: m[4],
+      tooltip: m[5],
+      hasLink: hasNodeToken || outgoingEdgeLabel !== undefined,
+      outgoingEdgeLabel,
+      color: customColor,
     };
   };
 
@@ -79,7 +88,7 @@ export function parse(source: string): ParseResult {
     while (idx < lines.length) {
       const line = lines[idx]!;
       if (line.indent < minIndent) break;
-      
+
       if (line.indent > minIndent) {
         errors.push(`Baris ${line.num}: indentasi tidak terduga (${line.indent} > ${minIndent}).`);
         idx++;
@@ -118,12 +127,17 @@ export function parse(source: string): ParseResult {
         if (!src) { errors.push(`Baris ${line.num}: sintaks cabang tidak dikenal → ${line.text}`); idx++; continue; }
 
         idx++;
-        const srcIdx = addNode(src.shape, src.label, false, true, parentIdx, undefined, currentGroup, src.icon, currentLane, src.link, src.tooltip, src.color);        
+        // Cabang tidak pakai outgoingEdgeLabel karena edge-nya punya logika sisi ya/tidak.
+        const srcIdx = addNode(src.shape, src.label, false, true, parentIdx, undefined,
+          currentGroup, src.icon, currentLane, src.link, src.tooltip,
+          src.color, undefined, line.num);
+
+        // FIX #1: teruskan label edge dari node SEBELUMNYA (bukan dari cabang source)
         if (isFirstInBlock && parentIdx !== undefined) {
-          edges.push({ from: parentIdx, to: srcIdx });
+          edges.push({ from: parentIdx, to: srcIdx, label: nodes[parentIdx]?.outgoingEdgeLabel });
           isFirstInBlock = false;
         } else if (prevIdx !== undefined && nodes[prevIdx]?.hasLink) {
-          edges.push({ from: prevIdx, to: srcIdx });
+          edges.push({ from: prevIdx, to: srcIdx, label: nodes[prevIdx]?.outgoingEdgeLabel });
         }
         prevIdx = srcIdx;
 
@@ -146,7 +160,9 @@ export function parse(source: string): ParseResult {
               const label = m[2] ?? (actual === 'yes' ? 'Ya' : 'Tidak');
               const link = m[3];
               const tooltip = m[4];
-              const hasLink = m[5] !== undefined;
+              // FIX #3: hasLink harus memperhitungkan -- label --> juga
+              const hasLink = m[5] !== undefined || m[6] !== undefined;
+              const sideLabel = m[6]?.trim();
               const shape: ShapeKind = actual === 'yes' ? 'round' : 'diamond';
 
               if (baseSideIndent === undefined) {
@@ -159,7 +175,9 @@ export function parse(source: string): ParseResult {
               if (actual === 'no') hasNo = true;
 
               idx++;
-              const sideIdx = addNode(shape, label, hasLink, false, srcIdx, actual, currentGroup, undefined, currentLane, link, tooltip);
+              const sideIdx = addNode(shape, label, hasLink, false, srcIdx, actual, 
+                currentGroup, undefined, currentLane, link, tooltip, undefined, sideLabel, sideLine.num);
+              // Edge sumber cabang → sisi: label = teks sisi ("Ya"/"Tidak"), BUKAN outgoingEdgeLabel
               edges.push({ from: srcIdx, to: sideIdx, label });
               lastSideIdx = sideIdx;
 
@@ -183,12 +201,16 @@ export function parse(source: string): ParseResult {
       if (!n) { errors.push(`Baris ${line.num}: sintaks tidak dikenal → ${line.text}`); idx++; continue; }
 
       idx++;
-      const nodeIdx = addNode(n.shape, n.label, n.hasLink, false, parentIdx, undefined, currentGroup, n.icon, currentLane, n.link, n.tooltip, n.color);      
+      const nodeIdx = addNode(n.shape, n.label, n.hasLink, false,
+        parentIdx, undefined, currentGroup, n.icon,
+        currentLane, n.link, n.tooltip, n.color, n.outgoingEdgeLabel, line.num);
+
+      // FIX #2: teruskan label edge dari node sebelumnya
       if (isFirstInBlock && parentIdx !== undefined) {
-        edges.push({ from: parentIdx, to: nodeIdx });
+        edges.push({ from: parentIdx, to: nodeIdx, label: nodes[parentIdx]?.outgoingEdgeLabel });
         isFirstInBlock = false;
       } else if (prevIdx !== undefined && nodes[prevIdx]?.hasLink) {
-        edges.push({ from: prevIdx, to: nodeIdx });
+        edges.push({ from: prevIdx, to: nodeIdx, label: nodes[prevIdx]?.outgoingEdgeLabel });
       }
       prevIdx = nodeIdx;
     }
@@ -204,10 +226,14 @@ export function parse(source: string): ParseResult {
 
   parseBlock(undefined, lines[idx]?.indent ?? 0, undefined, undefined);
 
+  // FIX #4: pesan error menyebut label asli bila ada
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i]!;
     if (n.hasLink && !edges.some((e) => e.from === i)) {
-      errors.push(`Node "${n.label}" memakai "->node" tetapi tidak ada node berikutnya.`);
+      const connector = n.outgoingEdgeLabel
+        ? `-- ${n.outgoingEdgeLabel} -->`
+        : '->node';
+      errors.push(`Node "${n.label}" memakai "${connector}" tetapi tidak ada node berikutnya.`);
     }
   }
 

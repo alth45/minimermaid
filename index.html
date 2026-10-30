@@ -1,134 +1,178 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MiniMermaid — Diagram dari Teks</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MiniMermaid — Diagram dari Teks</title>
 </head>
-<body>
 
-<!-- Cari bagian header ini -->
-<header>
-  <h1>Mini<span>Mermaid</span></h1>
-  <div class="spacer"></div>
-  
-  <select id="edge-style">
-    <option value="smooth">Smooth (Lengkung)</option>
-    <option value="step">Step (Siku)</option>
-    <option value="straight">Straight (Lurus)</option>
-  </select>
+<body data-theme="dark">
 
-  <button id="doc-btn">
-    <i data-lucide="book-open"></i> Dokumentasi
-  </button>
-  
-  <button id="toggle-editor">
-    <i data-lucide="eye-off"></i> <span id="toggle-text">Sembunyikan Kode</span>
-  </button>
-  
-  <!-- Tambahkan tombol PNG ini -->
-  <button id="download-png">
-    <i data-lucide="image"></i> PNG
-  </button>
-  
-  <button id="download">
-    <i data-lucide="download"></i> SVG
-  </button>
-</header>
+  <!-- ================= HEADER ================= -->
+  <header>
+    <h1>Mini<span>Mermaid</span></h1>
+    <div class="spacer"></div>
 
-<div class="app">
-  <section class="editor">
-    <div class="label">Kode Diagram</div>
-    <textarea id="src" spellcheck="false"></textarea>
-    <div class="help">
-      <b>Bentuk:</b>
-      <code>square</code> <code>round</code> <code>circle</code> <code>ellipse</code>
-      <code>diamond</code> <code>triangle</code> <code>hexagon</code>
-      <code>parallelogram</code> <code>cylinder</code> <code>document</code><br>
-      <b>Sambung:</b> tambahkan <code>-&gt;node</code> di akhir baris untuk
-      menyambung ke node berikutnya secara otomatis.<br>
-      <b>Baris baru dalam teks:</b> tulis <code>\n</code>
-    </div>
-  </section>
+    <select id="edge-style">
+      <option value="smooth">Smooth (Lengkung)</option>
+      <option value="step">Step (Siku)</option>
+      <option value="straight">Straight (Lurus)</option>
+    </select>
 
-  <section class="preview">
-    <svg id="canvas" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
-    <div id="errors"></div>
-  </section>
-</div>
+    <button id="theme-btn">
+      <i data-lucide="sun"></i> Terang
+    </button>
 
-<!-- ================= MODAL DOKUMENTASI ================= -->
-<div id="doc-modal" class="modal-overlay">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>📖 Panduan Sintaks MiniMermaid</h2>
-      <button id="close-doc" class="close-btn">&times;</button>
-    </div>
-    
-    <div class="modal-body">
-      
-      <!-- 1. Dasar Node -->
-      <div class="doc-item">
-        <h3>1. Node Dasar</h3>
-        <p>Satu node ditulis per baris. Gunakan <code>-&gt;node</code> di akhir untuk menyambung ke node berikutnya.</p>
-        <pre><code>->[round]->text["Mulai"]->node
+    <button id="doc-btn">
+      <i data-lucide="book-open"></i> Dokumentasi
+    </button>
+
+    <button id="help-btn" title="Pintasan keyboard (Ctrl + /)">
+      <i data-lucide="keyboard"></i>
+    </button>
+
+    <button id="share-btn" title="Bagikan tautan URL">
+      <i data-lucide="link"></i> Bagikan
+    </button>
+
+    <button id="copy-svg-btn" title="Salin SVG ke clipboard">
+      <i data-lucide="clipboard"></i> Salin SVG
+    </button>
+
+    <button id="toggle-editor">
+      <i data-lucide="eye-off"></i> <span id="toggle-text">Sembunyikan Kode</span>
+    </button>
+
+    <button id="import-json-btn" title="Impor dokumen .mmd.json">
+      <i data-lucide="upload"></i> Impor
+    </button>
+
+    <button id="export-json-btn" title="Ekspor dokumen .mmd.json">
+      <i data-lucide="file-json"></i> .mmd.json
+    </button>
+
+    <button id="download-png" title="Unduh PNG">
+      <i data-lucide="image"></i> PNG
+    </button>
+
+    <button id="download" title="Unduh SVG">
+      <i data-lucide="download"></i> SVG
+    </button>
+  </header>
+
+  <!-- ================= APP ================= -->
+  <div class="app">
+    <!-- Editor -->
+    <section class="editor">
+      <div class="label">Kode Diagram</div>
+      <textarea id="src" spellcheck="false"></textarea>
+      <div class="help">
+        <b>Bentuk:</b>
+        <code>square</code> <code>round</code> <code>circle</code> <code>ellipse</code>
+        <code>diamond</code> <code>triangle</code> <code>hexagon</code>
+        <code>parallelogram</code> <code>cylinder</code> <code>document</code><br>
+        <b>Sambung:</b> <code>-&gt;node</code> di akhir baris untuk menyambung ke node berikutnya.<br>
+        <b>Label panah:</b> ganti <code>-&gt;node</code> dengan <code>-- label --&gt;</code> di akhir baris.<br>
+        <b>Baris baru dalam teks:</b> tulis <code>\n</code>
+        <b>Edit node:</b> klik node di preview untuk membuka panel properti.<br>
+      </div>
+    </section>
+
+    <!-- Preview -->
+    <section class="preview">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+
+      <div class="zoom-controls">
+        <button id="zoom-in" title="Perbesar (Ctrl + +)"><i data-lucide="zoom-in"></i></button>
+        <button id="zoom-out" title="Perkecil (Ctrl + -)"><i data-lucide="zoom-out"></i></button>
+        <button id="zoom-reset" title="Reset / Fit (Ctrl + 0)"><i data-lucide="maximize"></i></button>
+      </div>
+
+      <div id="errors"></div>
+    </section>
+  </div>
+
+  <!-- ================= MODAL DOKUMENTASI ================= -->
+  <div id="doc-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📖 Panduan Sintaks MiniMermaid</h2>
+        <button id="close-doc" class="close-btn" aria-label="Tutup">&times;</button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- 1. Dasar Node -->
+        <div class="doc-item">
+          <h3>1. Node Dasar</h3>
+          <p>Satu node ditulis per baris. Gunakan <code>-&gt;node</code> di akhir untuk menyambung ke node berikutnya.
+          </p>
+          <pre><code>->[round]->text["Mulai"]->node
 ->[square]->text["Proses Data"]->node
 ->[triangle]->text["Selesai"]</code></pre>
-        <button class="try-btn" data-code="->[round]->text[&quot;Mulai&quot;]->node&#10;->[square]->text[&quot;Proses Data&quot;]->node&#10;->[triangle]->text[&quot;Selesai&quot;]">Coba Kode Ini</button>
-      </div>
+          <button class="try-btn"
+            data-code="->[round]->text[&quot;Mulai&quot;]->node&#10;->[square]->text[&quot;Proses Data&quot;]->node&#10;->[triangle]->text[&quot;Selesai&quot;]">Coba
+            Kode Ini</button>
+        </div>
 
-      <!-- 2. Bentuk & Alias -->
-      <div class="doc-item">
-        <h3>2. Bentuk Node & Alias</h3>
-        <p>Mendukung bahasa Indonesia dan Inggris.</p>
-        <ul>
-          <li><code>square</code> / <code>kotak</code></li>
-          <li><code>round</code> / <code>kapsul</code></li>
-          <li><code>diamond</code> / <code>belahketupat</code></li>
-          <li><code>cylinder</code> / <code>database</code> / <code>db</code></li>
-          <li><code>document</code> / <code>dokumen</code></li>
-          <li><code>hexagon</code> / <code>segi enam</code></li>
-          <li><code>parallelogram</code> / <code>jajargenjang</code></li>
-          <li><code>circle</code>, <code>ellipse</code>, <code>triangle</code></li>
-        </ul>
-      </div>
+        <!-- 2. Bentuk & Alias -->
+        <div class="doc-item">
+          <h3>2. Bentuk Node & Alias</h3>
+          <p>Mendukung bahasa Indonesia dan Inggris.</p>
+          <ul>
+            <li><code>square</code> / <code>kotak</code></li>
+            <li><code>round</code> / <code>kapsul</code></li>
+            <li><code>diamond</code> / <code>belahketupat</code></li>
+            <li><code>cylinder</code> / <code>database</code> / <code>db</code></li>
+            <li><code>document</code> / <code>dokumen</code></li>
+            <li><code>hexagon</code> / <code>segi enam</code></li>
+            <li><code>parallelogram</code> / <code>jajargenjang</code></li>
+            <li><code>circle</code>, <code>ellipse</code>, <code>triangle</code></li>
+          </ul>
+        </div>
 
-      <!-- 3. Label Multi-baris -->
-      <div class="doc-item">
-        <h3>3. Label Multi-baris</h3>
-        <p>Gunakan <code>\n</code> untuk membuat baris baru di dalam label.</p>
-        <pre><code>->[diamond]->text["Kondisi\nTerpenuhi?"]</code></pre>
-        <button class="try-btn" data-code="->[diamond]->text[&quot;Kondisi\nTerpenuhi?&quot;]">Coba Kode Ini</button>
-      </div>
+        <!-- 3. Label Multi-baris -->
+        <div class="doc-item">
+          <h3>3. Label Multi-baris</h3>
+          <p>Gunakan <code>\n</code> untuk membuat baris baru di dalam label.</p>
+          <pre><code>->[diamond]->text["Kondisi\nTerpenuhi?"]</code></pre>
+          <button class="try-btn" data-code="->[diamond]->text[&quot;Kondisi\nTerpenuhi?&quot;]">Coba Kode Ini</button>
+        </div>
 
-      <!-- 4. Arah Horizontal -->
-      <div class="doc-item">
-        <h3>4. Arah Horizontal</h3>
-        <p>Tambahkan <code>[horizontal]</code> di baris paling atas.</p>
-        <pre><code>[horizontal]
+        <!-- 4. Arah Horizontal -->
+        <div class="doc-item">
+          <h3>4. Arah Horizontal</h3>
+          <p>Tambahkan <code>[horizontal]</code> di baris paling atas.</p>
+          <pre><code>[horizontal]
 ->[round]->text["Mulai"]->node
 ->[diamond]->text["Cek"]->node
 ->[square]->text["Selesai"]</code></pre>
-        <button class="try-btn" data-code="[horizontal]&#10;->[round]->text[&quot;Mulai&quot;]->node&#10;->[diamond]->text[&quot;Cek&quot;]->node&#10;->[square]->text[&quot;Selesai&quot;]">Coba Kode Ini</button>
-      </div>
+          <button class="try-btn"
+            data-code="[horizontal]&#10;->[round]->text[&quot;Mulai&quot;]->node&#10;->[diamond]->text[&quot;Cek&quot;]->node&#10;->[square]->text[&quot;Selesai&quot;]">Coba
+            Kode Ini</button>
+        </div>
 
-      <!-- 5. Percabangan Datar (Flat) -->
-      <div class="doc-item">
-        <h3>5. Percabangan Datar</h3>
-        <p>Gunakan <code>[cabang]</code> diikuti dengan sisi <code>->ya</code> dan <code>->tidak</code>.</p>
-        <pre><code>[cabang]->[diamond]->text["Lulus?"]
+        <!-- 5. Percabangan Datar -->
+        <div class="doc-item">
+          <h3>5. Percabangan Datar</h3>
+          <p>Gunakan <code>[cabang]</code> diikuti dengan sisi <code>-&gt;ya</code> dan <code>-&gt;tidak</code>.</p>
+          <pre><code>[cabang]->[diamond]->text["Lulus?"]
 ->ya["Ya"]
 ->[square]->text["Sertifikat"]
 ->tidak["Tidak"]
 ->[square]->text["Ulang"]</code></pre>
-        <button class="try-btn" data-code="[cabang]->[diamond]->text[&quot;Lulus?&quot;]&#10;->ya[&quot;Ya&quot;]&#10;->[square]->text[&quot;Sertifikat&quot;]&#10;->tidak[&quot;Tidak&quot;]&#10;->[square]->text[&quot;Ulang&quot;]">Coba Kode Ini</button>
-      </div>
+          <button class="try-btn"
+            data-code="[cabang]->[diamond]->text[&quot;Lulus?&quot;]&#10;->ya[&quot;Ya&quot;]&#10;->[square]->text[&quot;Sertifikat&quot;]&#10;->tidak[&quot;Tidak&quot;]&#10;->[square]->text[&quot;Ulang&quot;]">Coba
+            Kode Ini</button>
+        </div>
 
-      <!-- 6. Percabangan Bertingkat (Nested) -->
-      <div class="doc-item">
-        <h3>6. Percabangan Bertingkat (Bagan)</h3>
-        <p>Gunakan <b>Indentasi (Spasi/Tab)</b> di bawah <code>->ya</code> atau <code>->tidak</code> untuk membuat sub-cabang.</p>
-        <pre><code>[cabang]->[diamond]->text["Punya Akun?"]
+        <!-- 6. Percabangan Bertingkat -->
+        <div class="doc-item">
+          <h3>6. Percabangan Bertingkat (Bagan)</h3>
+          <p>Gunakan <b>Indentasi (Spasi/Tab)</b> di bawah <code>-&gt;ya</code> atau <code>-&gt;tidak</code> untuk
+            membuat sub-cabang.</p>
+          <pre><code>[cabang]->[diamond]->text["Punya Akun?"]
   ->ya["Ya"]
     [cabang]->[diamond]->text["Verifikasi?"]
       ->ya["Ya"]
@@ -137,13 +181,123 @@
         ->[square]->text["Kirim Email"]
   ->tidak["Tidak"]
     ->[square]->text["Daftar"]</code></pre>
-        <button class="try-btn" data-code="[cabang]->[diamond]->text[&quot;Punya Akun?&quot;]&#10;  ->ya[&quot;Ya&quot;]&#10;    [cabang]->[diamond]->text[&quot;Verifikasi?&quot;]&#10;      ->ya[&quot;Ya&quot;]&#10;        ->[round]->text[&quot;Dashboard&quot;]&#10;      ->tidak[&quot;Belum&quot;]&#10;        ->[square]->text[&quot;Kirim Email&quot;]&#10;  ->tidak[&quot;Tidak&quot;]&#10;    ->[square]->text[&quot;Daftar&quot;]">Coba Kode Ini</button>
-      </div>
+          <button class="try-btn"
+            data-code="[cabang]->[diamond]->text[&quot;Punya Akun?&quot;]&#10;  ->ya[&quot;Ya&quot;]&#10;    [cabang]->[diamond]->text[&quot;Verifikasi?&quot;]&#10;      ->ya[&quot;Ya&quot;]&#10;        ->[round]->text[&quot;Dashboard&quot;]&#10;      ->tidak[&quot;Belum&quot;]&#10;        ->[square]->text[&quot;Kirim Email&quot;]&#10;  ->tidak[&quot;Tidak&quot;]&#10;    ->[square]->text[&quot;Daftar&quot;]">Coba
+            Kode Ini</button>
+        </div>
 
+        <!-- 7. Label pada Panah -->
+        <div class="doc-item">
+          <h3>7. Label pada Panah</h3>
+          <p>
+            Ganti <code>-&gt;node</code> dengan <code>-- label --&gt;</code> di akhir baris untuk
+            memberi teks label pada panah yang menuju node berikutnya.
+          </p>
+          <pre><code>->[round]->text["Mulai"]-- mulai -->
+->[square]->text["Validasi"]-- oke -->
+->[diamond]->text["Sukses?"]-- ya -->
+->[triangle]->text["Selesai"]</code></pre>
+          <button class="try-btn"
+            data-code="->[round]->text[&quot;Mulai&quot;]-- mulai --&gt;&#10;->[square]->text[&quot;Validasi&quot;]-- oke --&gt;&#10;->[diamond]->text[&quot;Sukses?&quot;]-- ya --&gt;&#10;->[triangle]->text[&quot;Selesai&quot;]">Coba
+            Kode Ini</button>
+        </div>
+
+        <!-- 8. Diagram ER -->
+        <div class="doc-item">
+          <h3>8. Diagram ER (Entity Relationship)</h3>
+          <p>
+            Gunakan <code>[er]</code> di baris pertama. Deklarasikan entitas dengan
+            <code>entity Nama { ... }</code>, atribut dengan prefix opsional
+            <code>PK</code> / <code>FK</code> / <code>PK/FK</code>.
+            Relasi ditulis dengan <code>1</code>, <code>N</code> (atau <code>M</code>/<code>*</code>),
+            atau <code>?</code> (optional).
+          </p>
+          <pre><code>[er]
+entity User {
+  PK id int
+  name string
+  email string
+}
+entity Post {
+  PK id int
+  FK user_id int
+  title string
+}
+User 1 -- N Post : menulis
+User 1 -- ? Profile : memiliki</code></pre>
+          <button class="try-btn"
+            data-code="[er]&#10;entity User {&#10;  PK id int&#10;  name string&#10;  email string&#10;}&#10;entity Post {&#10;  PK id int&#10;  FK user_id int&#10;  title string&#10;}&#10;User 1 -- N Post : menulis&#10;User 1 -- ? Profile : memiliki">Coba
+            Kode Ini</button>
+        </div>
+
+
+        <!-- 9. Mindmap -->
+        <div class="doc-item">
+          <h3>9. Mindmap (Peta Pikiran)</h3>
+          <p>
+            Gunakan <code>[mindmap]</code> di baris pertama. Tiap baris berikutnya
+            merepresentasikan satu node; hierarki dibentuk oleh <b>indentasi</b>
+            (spasi/tab). Baris pertama = root, otomatis diletakkan di tengah dan
+            cabang utama dibelah ke kiri dan kanan.
+          </p>
+          <pre><code>[mindmap]
+Proyek Baru
+  Riset
+    Riset Pasar
+    Kompetitor
+  Desain
+    Wireframe
+    Mockup
+  Development
+    Backend
+    Frontend
+  Launch</code></pre>
+          <button class="try-btn"
+            data-code="[mindmap]&#10;Proyek Baru&#10;  Riset&#10;    Riset Pasar&#10;    Kompetitor&#10;  Desain&#10;    Wireframe&#10;    Mockup&#10;  Development&#10;    Backend&#10;    Frontend&#10;  Launch">Coba
+            Kode Ini</button>
+        </div>
+
+        <!-- 10. Timeline -->
+        <div class="doc-item">
+          <h3>10. Timeline (Kronologi)</h3>
+          <p>
+            Gunakan <code>[timeline]</code> di baris pertama. Setiap baris event ditulis
+            sebagai <code>tanggal : label [: sublabel]</code>. Baris opsional
+            <code>title : ...</code> (atau <code>judul : ...</code>) di atas event
+            menambahkan judul. Kartu event bergantian otomatis di atas &amp; bawah garis waktu.
+          </p>
+          <pre><code>[timeline]
+title : Sejarah MiniMermaid
+2020 : Peluncuran Beta : 500 pengguna awal
+2021 : Rilis 1.0 : 10K pengguna
+2022 : Ekspansi Asia
+2023 : Series A : $5M
+2024 : Rilis 2.0</code></pre>
+          <button class="try-btn"
+            data-code="[timeline]&#10;title : Sejarah MiniMermaid&#10;2020 : Peluncuran Beta : 500 pengguna awal&#10;2021 : Rilis 1.0 : 10K pengguna&#10;2022 : Ekspansi Asia&#10;2023 : Series A : $5M&#10;2024 : Rilis 2.0">Coba
+            Kode Ini</button>
+        </div>
+
+
+
+      </div>
     </div>
   </div>
-</div>
 
-<script type="module" src="/src/main.ts"></script>
+
+
+  <!-- ================= MODAL PINTASAN KEYBOARD ================= -->
+  <div id="shortcuts-modal" class="modal-overlay">
+    <div class="modal-content modal-narrow">
+      <div class="modal-header">
+        <h2>⌨ Pintasan Keyboard</h2>
+        <button id="close-shortcuts" class="close-btn" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="modal-body" id="shortcuts-body"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
 </body>
+
 </html>

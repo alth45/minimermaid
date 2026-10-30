@@ -1,5 +1,5 @@
-import type { PositionedNode, EdgeStyle } from '../core/types';
-import { LAYOUT } from '../core/config';
+import type { PositionedNode, EdgeStyle, ThemeColors } from '../core/types';
+import { LAYOUT, THEMES } from '../core/config';
 import { num } from './svg-utils';
 
 export type BranchSide = 'yes' | 'no';
@@ -14,50 +14,31 @@ function anchorPair(
   const acy = a.y + a.h / 2;
   const bcx = b.x + b.w / 2;
   const bcy = b.y + b.h / 2;
-  
-  // Deteksi Back-Edge (Panah balik ke atas/kiri)
   const isBackEdge = horizontal ? (bcx < acx) : (bcy < acy);
 
   if (isBackEdge) {
     if (horizontal) {
-      // Layout horizontal, tujuan di kiri. Keluar dari sisi atas/bawah.
       const up = bcy < acy;
-      return {
-        x1: acx, y1: up ? a.y : a.y + a.h,
-        x2: bcx, y2: up ? b.y + b.h + 2 : b.y - 2, along: 'cross',
-      };
-    } else {
-      // Layout vertikal, tujuan di atas. Keluar dari sisi kanan.
-      return {
-        x1: a.x + a.w, y1: acy,
-        x2: b.x + b.w + 2, y2: bcy, along: 'cross',
-      };
+      return { x1: acx, y1: up ? a.y : a.y + a.h, x2: bcx, y2: up ? b.y + b.h + 2 : b.y - 2, along: 'cross' };
     }
+    return { x1: a.x + a.w, y1: acy, x2: b.x + b.w + 2, y2: bcy, along: 'cross' };
   }
 
-  // Forward Edge (Normal)
   const crosswise = horizontal
     ? Math.abs(bcy - acy) > Math.abs(bcx - acx)
     : Math.abs(bcx - acx) > Math.abs(bcy - acy);
-    
+
   if (!crosswise) {
     return horizontal
       ? { x1: a.x + a.w, y1: acy, x2: b.x - 2, y2: bcy, along: 'main' }
       : { x1: acx, y1: a.y + a.h, x2: bcx, y2: b.y - 2, along: 'main' };
   }
-  
   if (horizontal) {
     const up = bcy < acy;
-    return {
-      x1: acx, y1: up ? a.y : a.y + a.h,
-      x2: bcx, y2: up ? b.y + b.h + 2 : b.y - 2, along: 'cross',
-    };
+    return { x1: acx, y1: up ? a.y : a.y + a.h, x2: bcx, y2: up ? b.y + b.h + 2 : b.y - 2, along: 'cross' };
   }
   const left = bcx < acx;
-  return {
-    x1: left ? a.x : a.x + a.w, y1: acy,
-    x2: left ? b.x + b.w + 2 : b.x - 2, y2: bcy, along: 'cross',
-  };
+  return { x1: left ? a.x : a.x + a.w, y1: acy, x2: left ? b.x + b.w + 2 : b.x - 2, y2: bcy, along: 'cross' };
 }
 
 export function edgeSvg(
@@ -68,6 +49,7 @@ export function edgeSvg(
   label?: string,
   style: EdgeStyle = 'smooth',
   undirected = false,
+  theme: ThemeColors = THEMES.dark,
 ): string {
   let d: string;
   let lx = 0;
@@ -76,7 +58,6 @@ export function edgeSvg(
   const midY = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
 
   if (branch) {
-    // ... (Logika percabangan persis seperti sebelumnya) ...
     if (horizontal) {
       const x1 = a.x + a.w;
       const y1 = a.y + a.h / 2;
@@ -100,7 +81,7 @@ export function edgeSvg(
     }
   } else {
     const { x1, y1, x2, y2 } = anchorPair(a, b, horizontal);
-    
+
     if (style === 'straight') {
       d = `M${num(x1)},${num(y1)} L${num(x2)},${num(y2)}`;
       lx = (x1 + x2) / 2; ly = (y1 + y2) / 2;
@@ -127,13 +108,13 @@ export function edgeSvg(
   }
 
   const marker = undirected ? '' : 'marker-end="url(#arrow)"';
-  const path = `<path d="${d}" fill="none" stroke="#7d8590" stroke-width="2" stroke-linecap="round" ${marker}/>`;
+  const path = `<path d="${d}" fill="none" stroke="${theme.edgeStroke}" stroke-width="2" stroke-linecap="round" ${marker}/>`;
   if (!label) return path;
 
   const w = Math.max(LAYOUT.branchLabelMinW, label.length * LABEL_FONT_SIZE * 0.66 + 10);
   const h = LABEL_FONT_SIZE + 8;
-  const bg = `<rect x="${num(lx - w / 2)}" y="${num(ly - h / 2)}" width="${num(w)}" height="${num(h)}" rx="6" fill="#0d1117" opacity="0.9"/>`;
-  const text = `<text x="${num(lx)}" y="${num(ly + LABEL_FONT_SIZE * 0.35)}" text-anchor="middle" font-size="${LABEL_FONT_SIZE}" fill="#c9d1d9">${escapeXml(label)}</text>`;
+  const bg = `<rect x="${num(lx - w / 2)}" y="${num(ly - h / 2)}" width="${num(w)}" height="${num(h)}" rx="6" fill="${theme.edgeLabelBg}" opacity="0.92"/>`;
+  const text = `<text x="${num(lx)}" y="${num(ly + LABEL_FONT_SIZE * 0.35)}" text-anchor="middle" font-size="${LABEL_FONT_SIZE}" fill="${theme.edgeLabelText}">${escapeXml(label)}</text>`;
   return `${path}${bg}${text}`;
 }
 
@@ -141,17 +122,25 @@ function escapeXml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export const ARROW_DEFS = `<defs>
+export function arrowDefs(theme: ThemeColors = THEMES.dark): string {
+  return `<defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-      <path d="M0,0 L10,5 L0,10 z" fill="#7d8590"/>
+      <path d="M0,0 L10,5 L0,10 z" fill="${theme.edgeStroke}"/>
     </marker>
   </defs>`;
+}
 
-export const UML_ARROW_DEFS = `<defs>
+export function umlArrowDefs(theme: ThemeColors = THEMES.dark): string {
+  return `<defs>
     <marker id="uml-arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto">
-      <polygon points="0,0 12,6 0,12" fill="#0d1117" stroke="#7d8590" stroke-width="1.5" />
+      <polygon points="0,0 12,6 0,12" fill="${theme.canvasBg}" stroke="${theme.edgeStroke}" stroke-width="1.5" />
     </marker>
     <marker id="uml-diamond" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto">
-      <polygon points="0,6 6,0 12,6 6,12" fill="#0d1117" stroke="#7d8590" stroke-width="1.5" />
+      <polygon points="0,6 6,0 12,6 6,12" fill="${theme.canvasBg}" stroke="${theme.edgeStroke}" stroke-width="1.5" />
     </marker>
   </defs>`;
+}
+
+// Backwards-compat alias (dark theme)
+export const ARROW_DEFS = arrowDefs();
+export const UML_ARROW_DEFS = umlArrowDefs();
