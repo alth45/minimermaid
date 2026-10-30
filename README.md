@@ -8,6 +8,7 @@
 ![Docs](https://img.shields.io/badge/docs-Vue%203-42b883)
 ![Diagrams](https://img.shields.io/badge/diagrams-9-brightgreen)
 ![Theme](https://img.shields.io/badge/theme-dark%20%2F%20light-purple)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
@@ -517,5 +518,5 @@ Mencakup pengujian parser, layout, render SVG, injeksi measurer (untuk karakter 
 
 ## 📄 Lisensi
 
-MIT — silakan dipakai, dimodifikasi, dan dibagikan secara bebas.
+[MIT](./LICENSE) — silakan dipakai, dimodifikasi, dan dibagikan secara bebas.
 
